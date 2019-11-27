@@ -135,7 +135,7 @@ Notes begin with char '#'
 
 7.Lib Functions
 
-in basics.nas:
+In basics.nas:
 
 append(vector,elements...):append is used to add a new variable into an array
 
@@ -153,3 +153,52 @@ chars(str): split a string into characters
 
 substr(str,start,length):get a substring from a exist string
 
+In io.nas:
+
+print(args...):print informations on the screen
+
+input():gets istream from keyboard and returns a string
+
+read(filename):reads strings from a file and returns an array
+
+write(filename,vector):output strings or numbers in this array into a file
+
+In math.nas:
+
+pi:you know
+
+ln_2:you know
+
+ln_10:you know
+
+ln(x)
+
+log(a,x)
+
+exp(x)
+
+pow(x,number)
+
+sigmoid(x)
+
+sinh(x)
+
+cosh(x)
+
+tanh(x)
+
+relu(x)
+
+sin(x)
+
+cos(x)
+
+tan(x)
+
+sqrt(x)
+
+asin(x)
+
+acos(x)
+
+atan(x)
