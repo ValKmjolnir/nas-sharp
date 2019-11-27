@@ -32,29 +32,11 @@ value type:
 
 operators:
 
-  `+` (add)
-  
-  `-` (sub)
-  
-  `*` (mul)
-  
-  `/` (div)
-  
-  `~` (link:used to link two strings)
+  `+` (add) `-` (sub) `*` (mul) `/` (div) `~` (link:used to link two strings)
   
   `!` (nor)
   
-  `>`
-  
-  `>=`
-  
-  `<`
-  
-  `<=`
-  
-  `==` (equal)
-  
-  `!=` (not equal)
+  `>` `>=` `<` `<=` `==` (equal) `!=` (not equal)
   
   `and` (used like this: a<=b and b<=c,it is not used in bit operation)
   
@@ -64,15 +46,7 @@ operators:
   
   `=`  (definition/assignment)
   
-  `+=` (assignment)
-  
-  `-=` (assignment)
-  
-  `*=` (assignment)
-  
-  `/=` (assignment)
-  
-  `~=` (assignment)
+  `+=` (assignment) `-=` (assignment) `*=` (assignment) `/=` (assignment) `~=` (assignment)
 
 ## 1.Definition:
 
