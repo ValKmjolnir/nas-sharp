@@ -14,7 +14,7 @@ And finally i made it.Then this language was born.Hope you will love this simple
 
 Also, i hope the interpreter's codes will give you different inspiration to make your own interpreter.
 
-You can still see the code in Nasal-Interpreter: [Nasal-Interpreter ValKmjolnir](https://github.com/ValKmjolnir/Nasal-Interpreter)
+You can still see the code in Nasal-Interpreter: [Nasal-Interpreter github:ValKmjolnir](https://github.com/ValKmjolnir/Nasal-Interpreter)
 
 # How to use balloon:
 
@@ -78,15 +78,13 @@ operators:
 
 All new variables must be declared by this way:
 
-`var a=1;
-
-var b='str';
-
+```javascript
+var a=1;
+var b='str';# string can also be "str"
 var c=[];
-
 var d={m:0,n:"str"};
-
-var f=func(){return 0;};`
+var f=func(){return 0;};
+```
 
 Don't forget to add a ';' after each statement.
 
@@ -94,9 +92,10 @@ Don't forget to add a ';' after each statement.
 
 Variables can change their value by using operators like =,+=,-=,*=,/=,~=
 
-`a+=1;
-
-b~="hello world!";`
+```javascript
+a+=1;
+b~="hello world!";
+```
 
 ## 3.Call identifiers
 
@@ -110,13 +109,12 @@ Call function by this way: `function_name(parameters);`
 
 Framework is like this:
 
-`if(condition){}
-
+```javascript
+if(condition){}
 elsif(condition){}
-
 else if(condition){}
-
-else{}`
+else{}
+```
 
 Remember not to forget braces, and the same for loop statement
 
@@ -124,9 +122,10 @@ Remember not to forget braces, and the same for loop statement
 
 There are two types of loops in this language:
 
-`while(condition){}
-
-for(;;){}`
+```C++
+while(condition){}
+for(;;){}
+```
 
 The usage of the two loops is the same as that in C++
 
@@ -172,34 +171,50 @@ Notes begin with char '#'
 
 `ln_10`:you know
 
-`ln(x)
+`ln(x)`
 
-log(a,x)
+`log(a,x)`
 
-exp(x)
+`exp(x)`
 
-pow(x,number)
+`pow(x,number)`
 
-sigmoid(x)
+`sigmoid(x)`
 
-sinh(x)
+`sinh(x)`
 
-cosh(x)
+`cosh(x)`
 
-tanh(x)
+`tanh(x)`
 
-relu(x)
+`relu(x)`
 
-sin(x)
+`sin(x)`
 
-cos(x)
+`cos(x)`
 
-tan(x)
+`tan(x)`
 
-sqrt(x)
+`sqrt(x)`
 
-asin(x)
+`asin(x)`
 
-acos(x)
+`acos(x)`
 
-atan(x)`
+`atan(x)`
+
+# What should be paid attention to:
+
+When calling a function,you can use more parameters than the function needs.
+
+**But lack of parameters will cause a runtime-error.**
+
+# Want to learn more about how to use the interpreter?
+
+Type 'help' in interpreter to get informations
+
+And before compiling the codes,**don't forget to edit the 'cls' in `main.cpp`**.
+
+Change command in `system("");` with your system.
+
+Anyway, if you find some problems when compiling this program,please make a feedback by using issues above.
