@@ -1,0 +1,49 @@
+(*
+    <>  must choose
+    []  can choose
+    {}  can repeat 0 to infinite time(s)
+    |   or
+    ::= is defined as
+*)
+
+(*
+id     (_ | a~z | A~Z){(_ | a~z | A~Z | 0~9)};
+number (0~9){0~9}[. (0~9){0~9}];
+string "...";
+*)
+
+list     ::= <[> {<calc> <,>} <]>;
+hash     ::= <{> {<id> <:> <calc>} <}>;
+function ::= <func> <(> {<id> <,>} [<id> <...>]<)> <exprs>;
+
+(*first(definition)={ var }*)
+definition  ::= <var> <id> <=> <calc>;
+(*first(conditional)={ if }*)
+conditional ::= <if> <(> <calc> <)> <exprs> [<else> <exprs>];
+(*first(while)={ while }*)
+while       ::= <while> <(> <calc> <)> <exprs>;
+(*first(for)={ for }*)
+for         ::= <for> <(> (<definition>|<assignment>| ) <;> (<calc>| ) <;> (<assignment>| ) <)> <exprs>;
+
+(*first(calc)={ id,-,!,number,string,func,[,{,( }*)
+calc     ::= <or_expr> [<?> <or_expr> <:> <or_expr>];
+or_expr  ::= <and_expr> <or> <and_expr>;
+and_expr ::= <cmp_expr> <and> <cmp_expr>;
+cmp_expr ::= <additive> (<==> | <!=> | <<> | <>> | <<=> | <>=>) <additive>;
+additive ::= <multive> (<+> | <-> | <~>) <multive>;
+multive  ::= <scalar> (<*> | </>) <scalar>;
+scalar   ::= {<-> | <!>} (<call> | <number> | <string> | <function> | <list> | <hash> | <(> <calc> <)>);
+call     ::= <id> {(<.> <id>) | (<[> <calc> <]>) | (<(> {<calc> <,>} <)>)} [(<=>|<+=>|<-=>|<*=>|<\=>|<~=>) <calc>];
+
+exprs ::= <{> {<expr> <;>} <}>;
+expr  ::= 
+          <calc>
+        | <definition>
+        | <conditional>
+        | <while>
+        | <for>
+        | <continue>
+        | <break>
+        | <return> [calc]
+        ;
+proc  ::= {<expr> <;>};
