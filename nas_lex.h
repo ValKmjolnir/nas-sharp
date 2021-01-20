@@ -3,11 +3,12 @@
 
 #define IS_DIGIT(c) ('0'<=(c) && (c)<='9')
 #define IS_ID(c) (('a'<=(c) && (c)<='z')||('A'<=(c) && (c)<='Z') || (c)=='_')
-#define SINGLE_OPR(c) ((c)==';' || (c)==',' || (c)=='.' || (c)==';' || (c)==':' || (c)=='?' || (c)=='(' || (c)==')' || (c)=='[' || (c)==']' || (c)=='{' || (c)=='}')
+#define SINGLE_OPR(c) ((c)==';' || (c)==',' || (c)==';' || (c)==':' || (c)=='?' || (c)=='(' || (c)==')' || (c)=='[' || (c)==']' || (c)=='{' || (c)=='}')
 #define MULT_OPR(c) ((c)=='+' || (c)=='-' || (c)=='*' || (c)=='/' || (c)=='~' || (c)=='=' || (c)=='!' || (c)=='<' || (c)=='>')
 enum token_type
 {
     tok_eof,
+    tok_nil,
     tok_id,
     tok_num,
     tok_str,
@@ -28,6 +29,7 @@ enum token_type
     tok_comma,
     tok_quesmark,
     tok_dot,
+    tok_ellipsis,
     tok_minus,
     tok_not,
     tok_plus,
@@ -56,6 +58,7 @@ struct
     const char* content;
 } token_table[]=
 {
+    {tok_nil,      "nil"      },
     {tok_var,      "var"      },
     {tok_func,     "func"     },
     {tok_if,       "if"       },
@@ -72,6 +75,7 @@ struct
     {tok_comma,    ","        },
     {tok_quesmark, "?"        },
     {tok_dot,      "."        },
+    {tok_ellipsis, "..."      },
     {tok_minus,    "-"        },
     {tok_not,      "!"        },
     {tok_plus,     "+"        },
@@ -99,18 +103,69 @@ struct
     {tok_eof,      NULL       }
 };
 
+int line;
+int ptr;
+std::string res;
+struct{int type;int line;std::string content;} token;
+void open(std::string filename)
+{
+    std::ifstream fin(filename,std::ios::binary);
+    if(fin.fail())
+    {
+        die(">> failed to open file: "+filename);
+        fin.close();
+        return;
+    }
+    res="";
+    while(!fin.eof())
+    {
+        char c=fin.get();
+        if(fin.eof()) break;
+        res+=c;
+    }
+    fin.close();
+    return;
+}
+
+void init()
+{
+    line=1;
+    ptr=0;
+    error=0;
+    return;
+}
+
+double strtonum(std::string str)
+{
+    int i=0;
+    double sum=0;
+    while(str[i] && str[i]!='.')
+        sum=sum*10+(str[i++]-'0');
+    if(!str[i]) return sum;
+    ++i;
+    double t=0.1;
+    while(str[i])
+    {
+        sum+=t*(str[i++]-'0');
+        t/=10.0;
+    }
+    return sum;
+}
+
 void next()
 {
-    while(res[ptr]==' ' || res[ptr]=='\t' || res[ptr]=='\r' || res[ptr]=='\n' || res[ptr]=='#')
-    {
-        if(res[ptr]=='#')
-            while(res[ptr++]!='\n');
-        if(res[ptr]=='\n')++line;
-        ++ptr;
-    }
     token.type=tok_eof;
     token.line=line;
     token.content="";
+    while(res[ptr]&&(res[ptr]==' ' || res[ptr]=='\t' || res[ptr]=='\r' || res[ptr]=='\n' || res[ptr]=='#'))
+    {
+        if(res[ptr]=='#')
+            while(res[ptr] && res[ptr]!='\n')
+                ++ptr;
+        if(res[ptr]=='\n')++line;
+        if(!res[ptr])break;
+        ++ptr;
+    }
     if(!res[ptr]) return;
     if(IS_DIGIT(res[ptr]))
     {
@@ -137,6 +192,20 @@ void next()
             die("get eof when generating string.",line);
         ++ptr;
         token.type=tok_str;
+    }
+    else if(res[ptr]=='.')
+    {
+        if(res[ptr+1] && res[ptr+2] && res[ptr+1]=='.' && res[ptr+2]=='.')
+        {
+            token.content="...";
+            ptr+=2;
+        }
+        else
+            token.content=".";
+        ++ptr;
+        for(int i=0;token_table[i].content;++i)
+            if(token_table[i].content==token.content)
+                token.type=token_table[i].type;
     }
     else if(IS_ID(res[ptr]))
     {

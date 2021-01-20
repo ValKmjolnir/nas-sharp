@@ -15,13 +15,9 @@ int main()
         if(filename=="exit") break;
         open(filename);
         if(error) continue;
-        next();
-        std::cout<<token.line<<' '<<token.content<<'\n';
-        while(token.type!=tok_eof && !error)
-        {
-            next();
-            std::cout<<token.line<<' '<<token.content<<'\n';
-        }
+        nas_ast par=proc();
+        if(error) continue;
+        par.print(0);
     }
     return 0;
 }

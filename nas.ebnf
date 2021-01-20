@@ -13,7 +13,7 @@ string "...";
 *)
 
 list     ::= <[> {<calc> <,>} <]>;
-hash     ::= <{> {<id> <:> <calc>} <}>;
+hash     ::= <{> {(<id> | <string>) <:> <calc>} <}>;
 function ::= <func> <(> {<id> <,>} [<id> <...>]<)> <exprs>;
 
 (*first(definition)={ var }*)
@@ -23,17 +23,17 @@ conditional ::= <if> <(> <calc> <)> <exprs> [<else> <exprs>];
 (*first(while)={ while }*)
 while       ::= <while> <(> <calc> <)> <exprs>;
 (*first(for)={ for }*)
-for         ::= <for> <(> (<definition>|<assignment>| ) <;> (<calc>| ) <;> (<assignment>| ) <)> <exprs>;
+for         ::= <for> <(> (<definition>|<calc>|<null>) <;> (<calc>|<null>) <;> (<calc>|<null>) <)> <exprs>;
 
-(*first(calc)={ id,-,!,number,string,func,[,{,( }*)
-calc     ::= <or_expr> [<?> <or_expr> <:> <or_expr>];
-or_expr  ::= <and_expr> <or> <and_expr>;
-and_expr ::= <cmp_expr> <and> <cmp_expr>;
-cmp_expr ::= <additive> (<==> | <!=> | <<> | <>> | <<=> | <>=>) <additive>;
-additive ::= <multive> (<+> | <-> | <~>) <multive>;
-multive  ::= <scalar> (<*> | </>) <scalar>;
-scalar   ::= {<-> | <!>} (<call> | <number> | <string> | <function> | <list> | <hash> | <(> <calc> <)>);
-call     ::= <id> {(<.> <id>) | (<[> <calc> <]>) | (<(> {<calc> <,>} <)>)} [(<=>|<+=>|<-=>|<*=>|<\=>|<~=>) <calc>];
+(*first(calc)={ nil,id,-,!,number,string,func,[,{,( }*)
+calc     ::= <or_expr> [(<?> <or_expr> <:> <or_expr>)];
+or_expr  ::= <and_expr> [<or> <and_expr>];
+and_expr ::= <cmp_expr> [<and> <cmp_expr>];
+cmp_expr ::= <additive> [(<==> | <!=> | <<> | <>> | <<=> | <>=>) <additive>];
+additive ::= <multive> [(<+> | <-> | <~>) <multive>];
+multive  ::= <scalar> [(<*> | </>) <scalar>];
+scalar   ::= ((<-> | <!>) <scalar>) | <call>;
+call     ::= (<id> | <nil> | <number> | <string> | <function> | <list> | <hash> | <(> <calc> <)>) {(<.> <id>) | (<[> <calc> <]>) | (<(> {<calc> <,>} <)>)} [(<=>|<+=>|<-=>|<*=>|<\=>|<~=>) <calc>];
 
 exprs ::= <{> {<expr> <;>} <}>;
 expr  ::= 
