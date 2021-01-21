@@ -476,6 +476,7 @@ nas_ast call()
         match(token.type);
         tmp.add_child(node);
         tmp.add_child(calc());
+        node=tmp;
     }
     return node;
 }
