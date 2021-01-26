@@ -4,6 +4,7 @@
 enum opcode_type
 {
     op_nop,
+    op_nil,
     op_pushn,
     op_pushs,
     op_pushv,
@@ -11,6 +12,11 @@ enum opcode_type
     op_pushf,
     op_vapp,
     op_happ,
+    op_para,
+    op_dynpara,
+    op_entry,
+
+    op_load,
 
     op_call,
     op_callv,
@@ -33,9 +39,9 @@ enum opcode_type
     op_meq,
     op_pluseq,
     op_minuseq,
+    op_lnkeq,
     op_multeq,
     op_diveq,
-    op_lnkeq,
 
     op_eq,
     op_neq,
@@ -49,6 +55,7 @@ enum opcode_type
     op_jmp,
     op_jt,
     op_jf,
+    op_ret
 };
 
 struct
@@ -58,6 +65,7 @@ struct
 }code_table[]=
 {
     {op_nop,     "nop   "},
+    {op_nil,     "nil   "},
     {op_pushn,   "pushn "},
     {op_pushs,   "pushs "},
     {op_pushv,   "pushv "},
@@ -65,6 +73,10 @@ struct
     {op_pushf,   "pushf "},
     {op_vapp,    "vapp  "},
     {op_happ,    "happ  "},
+    {op_para,    "para  "},
+    {op_dynpara, "dynp  "},
+    {op_entry,   "entry "},
+    {op_load,    "load  "},
     {op_call,    "call  "},
     {op_callv,   "callv "},
     {op_callh,   "callh "},
@@ -96,6 +108,7 @@ struct
     {op_jmp,     "jmp   "},
     {op_jt,      "jtrue "},
     {op_jf,      "jfalse"},
+    {op_ret,     "ret   "},
     {-1,         NULL    }
 };
 
@@ -122,6 +135,20 @@ void code_print()
                 break;
             }
         printf("0x%.8x %s 0x%.8x\n",i,tmp.data(),exec_code[i].num);
+        // switch(exec_code[i].op)
+        // {
+        //     case op_pushn: printf("(%lf)",number_table[exec_code[i].num]);
+        //     case op_pushs:
+        //     case op_load:
+        //     case op_happ:
+        //     case op_para:
+        //     case op_dynpara:
+        //     case op_call:
+        //     case op_mcall:
+        //     case op_callf:
+        //     case op_mcallf:printf("(%s)",string_table[exec_code[i].num].data());
+        // }
+        // printf("\n");
     }
     return;
 }
@@ -132,12 +159,14 @@ void proc_gen(nas_ast&);
 void blk_gen(nas_ast&);
 void expr_gen(nas_ast&);
 void calc_gen(nas_ast&);
-void id_gen(nas_ast&);
 void num_gen(nas_ast&);
 void str_gen(nas_ast&);
 void vec_gen(nas_ast&);
 void hash_gen(nas_ast&);
 void func_gen(nas_ast&);
+void call_gen(nas_ast&);
+void mcall_gen(nas_ast&);
+void def_gen(nas_ast&);
 void if_gen(nas_ast&);
 void while_gen(nas_ast&);
 void for_gen(nas_ast&);
@@ -190,29 +219,78 @@ void expr_gen(nas_ast& node)
 {
     switch(node.get_type())
     {
-        case ast_definition:break;
+        case ast_definition:def_gen(node);break;
+        case ast_nil:case ast_num:case ast_str:case ast_func:break;
+        case ast_list:case ast_hash:
         case ast_call:
         case ast_plus:case ast_minus:case ast_mult:case ast_div:case ast_link:
         case ast_not:case ast_cmpeq:case ast_neq:case ast_less:case ast_leq:case ast_grt:case ast_geq:
-        case ast_eq:case ast_pluseq:case ast_minuseq:case ast_multeq:case ast_diveq:case ast_linkeq:
+        case ast_eq:case ast_pluseq:case ast_minuseq:case ast_linkeq:case ast_multeq:case ast_diveq:
             calc_gen(node);
             emit(op_pop);
             break;
-        case ast_conditional:break;
-        case ast_while:break;
-        case ast_for:break;
+        case ast_and:break;
+        case ast_or:break;
+        case ast_conditional: if_gen(node);break;
+        case ast_while: while_gen(node);break;
+        case ast_for: for_gen(node);break;
         case ast_continue:break;
         case ast_break:break;
+        case ast_ret:break;
     }
     return;
 }
 void calc_gen(nas_ast& node)
 {
-    return;
-}
-void id_gen(nas_ast& node)
-{
-
+    switch(node.get_type())
+    {
+        case ast_nil:emit(op_nil);break;
+        case ast_id:
+        case ast_call:call_gen(node);break;
+        case ast_num:num_gen(node);break;
+        case ast_str:str_gen(node);break;
+        case ast_list:vec_gen(node);break;
+        case ast_hash:hash_gen(node);break;
+        case ast_func:func_gen(node);break;
+        case ast_eq:case ast_pluseq:case ast_minuseq:case ast_linkeq:case ast_multeq:case ast_diveq:
+            mcall_gen(node.get_children()[0]);
+            calc_gen(node.get_children()[1]);
+            emit(node.get_type()-ast_eq+op_meq);
+            break;
+        case ast_not:
+            calc_gen(node.get_children()[0]);
+            emit(op_not);
+            break;
+        case ast_minus:
+            if(node.get_children().size()==1)
+            {
+                calc_gen(node.get_children()[0]);
+                emit(op_neg);
+            }
+            else
+            {
+                calc_gen(node.get_children()[0]);
+                calc_gen(node.get_children()[1]);
+                emit(op_minus);
+            }
+            break;
+        case ast_plus:case ast_mult:case ast_div:case ast_link:
+            calc_gen(node.get_children()[0]);
+            calc_gen(node.get_children()[1]);
+            switch(node.get_type())
+            {
+                case ast_plus:emit(op_plus);break;
+                case ast_mult:emit(op_mult);break;
+                case ast_div: emit(op_div); break;
+                case ast_link:emit(op_lnk); break;
+            }
+            break;
+        case ast_cmpeq:case ast_neq:case ast_less:case ast_leq:case ast_grt:case ast_geq:
+            calc_gen(node.get_children()[0]);
+            calc_gen(node.get_children()[1]);
+            emit(node.get_type()-ast_cmpeq+op_eq);
+            break;
+    }
     return;
 }
 void num_gen(nas_ast& node)
@@ -254,21 +332,111 @@ void hash_gen(nas_ast& node)
 void func_gen(nas_ast& node)
 {
     emit(op_pushf,0);
-    //
+    std::vector<nas_ast>& parameter=node.get_children()[0].get_children();
+    for(int i=0;i<parameter.size();++i)
+    {
+        regist_str(parameter[i].get_str());
+        emit(parameter[i].get_type()==ast_para?op_para:op_dynpara,string_table[parameter[i].get_str()]);
+    }
+    emit(op_entry,exec_code.size()+2);
+    emit(op_jmp);
+    int jmp_label=exec_code.size()-1;
+    blk_gen(node.get_children()[1]);
+    if(exec_code.back().op!=op_ret)
+    {
+        emit(op_nil);
+        emit(op_ret);
+    }
+    exec_code[jmp_label].num=exec_code.size();
+    return;
+}
+void call_gen(nas_ast& node)
+{
+    if(node.get_type()==ast_id)
+    {
+        regist_str(node.get_str());
+        emit(op_call,string_table[node.get_str()]);
+        return;
+    }
+    std::vector<nas_ast>& calls=node.get_children();
+    switch(calls[0].get_type())
+    {
+        case ast_id:
+            regist_str(calls[0].get_str());
+            emit(op_call,string_table[calls[0].get_str()]);
+            break;
+        case ast_str:str_gen(calls[0]);break;
+        case ast_list:vec_gen(calls[0]);break;
+        case ast_hash:hash_gen(calls[0]);break;
+        case ast_func:func_gen(calls[0]);break;
+    }
+    for(int i=1;i<calls.size();++i)
+    {
+        switch(calls[i].get_type())
+        {
+            case ast_callv:
+                calc_gen(calls[i].get_children()[0]);
+                emit(op_callv);
+                break;
+            case ast_callh:
+                regist_str(calls[i].get_str());
+                emit(op_callh,string_table[calls[i].get_str()]);
+                break;
+            case ast_callf:
+                vec_gen(calls[i]);
+                emit(op_callf);
+                break;
+        }
+    }
+    return;
+}
+void mcall_gen(nas_ast& node)
+{
+    if(node.get_type()==ast_id)
+    {
+        regist_str(node.get_str());
+        emit(op_mcall,string_table[node.get_str()]);
+        return;
+    }
+    std::vector<nas_ast>& calls=node.get_children();
+    regist_str(calls[0].get_str());
+    emit(op_mcall,string_table[calls[0].get_str()]);
+    for(int i=1;i<calls.size();++i)
+    {
+        switch(calls[i].get_type())
+        {
+            case ast_callv:
+                calc_gen(calls[i].get_children()[0]);
+                emit(op_mcallv);
+                break;
+            case ast_callh:
+                regist_str(calls[i].get_str());
+                emit(op_mcallh,string_table[calls[i].get_str()]);
+                break;
+        }
+    }
+    return;
+}
+void def_gen(nas_ast& node)
+{
+    calc_gen(node.get_children()[0]);
+    regist_str(node.get_str());
+    emit(op_load,string_table[node.get_str()]);
     return;
 }
 void if_gen(nas_ast& node)
 {
-
+    //
     return;
 }
 void while_gen(nas_ast& node)
 {
-
+    //
     return;
 }
 void for_gen(nas_ast& node)
 {
+    //
     return;
 }
 
