@@ -170,6 +170,9 @@ void def_gen(nas_ast&);
 void if_gen(nas_ast&);
 void while_gen(nas_ast&);
 void for_gen(nas_ast&);
+void ret_gen(nas_ast&);
+void and_gen(nas_ast&);
+void or_gen(nas_ast&);
 
 void regist_str(std::string str)
 {
@@ -224,19 +227,18 @@ void expr_gen(nas_ast& node)
         case ast_list:case ast_hash:
         case ast_call:
         case ast_plus:case ast_minus:case ast_mult:case ast_div:case ast_link:
+        case ast_and:case ast_or:
         case ast_not:case ast_cmpeq:case ast_neq:case ast_less:case ast_leq:case ast_grt:case ast_geq:
         case ast_eq:case ast_pluseq:case ast_minuseq:case ast_linkeq:case ast_multeq:case ast_diveq:
             calc_gen(node);
             emit(op_pop);
             break;
-        case ast_and:break;
-        case ast_or:break;
         case ast_conditional: if_gen(node);break;
         case ast_while: while_gen(node);break;
         case ast_for: for_gen(node);break;
         case ast_continue:break;
         case ast_break:break;
-        case ast_ret:break;
+        case ast_ret:ret_gen(node);break;
     }
     return;
 }
@@ -290,6 +292,8 @@ void calc_gen(nas_ast& node)
             calc_gen(node.get_children()[1]);
             emit(node.get_type()-ast_cmpeq+op_eq);
             break;
+        case ast_and:and_gen(node);break;
+        case ast_or:or_gen(node);break;
     }
     return;
 }
@@ -426,12 +430,32 @@ void def_gen(nas_ast& node)
 }
 void if_gen(nas_ast& node)
 {
-    //
+    nas_ast& if_node=node.get_children()[0];
+    calc_gen(if_node.get_children()[0]);
+    emit(op_jf);
+    int condition_jmplabel=exec_code.size()-1;
+    blk_gen(if_node.get_children()[1]);
+    exec_code[condition_jmplabel].num=exec_code.size();
+    if(node.get_children().size()==2)
+    {
+        emit(op_jmp);
+        exec_code[condition_jmplabel].num=exec_code.size();
+        int jmp_out_label=exec_code.size()-1;
+        nas_ast& else_node=node.get_children()[1];
+        blk_gen(else_node.get_children()[0]);
+        exec_code[jmp_out_label].num=exec_code.size();
+    }
     return;
 }
 void while_gen(nas_ast& node)
 {
-    //
+    int jmp_label=exec_code.size();
+    calc_gen(node.get_children()[0]);
+    int jf_label=exec_code.size();
+    emit(op_jf);
+    blk_gen(node.get_children()[1]);
+    emit(op_jmp,jmp_label);
+    exec_code[jf_label].num=exec_code.size();
     return;
 }
 void for_gen(nas_ast& node)
@@ -439,5 +463,47 @@ void for_gen(nas_ast& node)
     //
     return;
 }
-
+void ret_gen(nas_ast& node)
+{
+    if(!node.get_children().size())
+        emit(op_nil);
+    else
+        calc_gen(node.get_children()[0]);
+    emit(op_ret);
+    return;
+}
+void and_gen(nas_ast& node)
+{
+    calc_gen(node.get_children()[0]);
+    int jf_label1=exec_code.size();
+    emit(op_jf);
+    calc_gen(node.get_children()[1]);
+    int jf_label2=exec_code.size();
+    emit(op_jf);
+    regist_num(1);
+    emit(op_pushn,number_table[1]);
+    int jmp_label=exec_code.size();
+    emit(op_jmp);
+    exec_code[jf_label1].num=exec_code[jf_label2].num=exec_code.size();
+    emit(op_nil);
+    exec_code[jmp_label].num=exec_code.size();
+    return;
+}
+void or_gen(nas_ast& node)
+{
+    calc_gen(node.get_children()[0]);
+    int jt_label1=exec_code.size();
+    emit(op_jt);
+    calc_gen(node.get_children()[1]);
+    int jt_label2=exec_code.size();
+    emit(op_jt);
+    emit(op_nil);
+    int jmp_label=exec_code.size();
+    emit(op_jmp);
+    exec_code[jt_label1].num=exec_code[jt_label2].num=exec_code.size();
+    regist_num(1);
+    emit(op_pushn,number_table[1]);
+    exec_code[jmp_label].num=exec_code.size();
+    return;
+}
 #endif
