@@ -19,6 +19,7 @@ enum opcode_type
     op_load,
 
     op_call,
+    op_callb,
     op_callv,
     op_callh,
     op_callf,
@@ -78,6 +79,7 @@ struct
     {op_entry,   "entry "},
     {op_load,    "load  "},
     {op_call,    "call  "},
+    {op_callb,   "callb "},
     {op_callv,   "callv "},
     {op_callh,   "callh "},
     {op_callf,   "callf "},
@@ -121,6 +123,8 @@ struct bytecode
 std::vector<bytecode> exec_code;
 std::map<std::string,unsigned int> string_table;
 std::map<double,unsigned int> number_table;
+std::list<std::vector<int> > continue_ptr;
+std::list<std::vector<int> > break_ptr;
 
 void code_print()
 {
@@ -222,7 +226,7 @@ void expr_gen(nas_ast& node)
 {
     switch(node.get_type())
     {
-        case ast_definition:def_gen(node);break;
+        case ast_definition:  def_gen(node);break;
         case ast_nil:case ast_num:case ast_str:case ast_func:break;
         case ast_list:case ast_hash:
         case ast_call:
@@ -234,10 +238,16 @@ void expr_gen(nas_ast& node)
             emit(op_pop);
             break;
         case ast_conditional: if_gen(node);break;
-        case ast_while: while_gen(node);break;
-        case ast_for: for_gen(node);break;
-        case ast_continue:break;
-        case ast_break:break;
+        case ast_while:       while_gen(node);break;
+        case ast_for:         for_gen(node);break;
+        case ast_continue:
+            continue_ptr.front().push_back(exec_code.size());
+            emit(op_jmp);
+            break;
+        case ast_break:
+            break_ptr.front().push_back(exec_code.size());
+            emit(op_jmp);
+            break;
         case ast_ret:ret_gen(node);break;
     }
     return;
@@ -449,6 +459,10 @@ void if_gen(nas_ast& node)
 }
 void while_gen(nas_ast& node)
 {
+    std::vector<int> new_labels;
+    continue_ptr.push_front(new_labels);
+    break_ptr.push_front(new_labels);
+
     int jmp_label=exec_code.size();
     calc_gen(node.get_children()[0]);
     int jf_label=exec_code.size();
@@ -456,11 +470,52 @@ void while_gen(nas_ast& node)
     blk_gen(node.get_children()[1]);
     emit(op_jmp,jmp_label);
     exec_code[jf_label].num=exec_code.size();
+
+    for(int i=0;i<continue_ptr.front().size();++i)
+        exec_code[continue_ptr.front()[i]].num=jmp_label;
+    for(int i=0;i<break_ptr.front().size();++i)
+        exec_code[break_ptr.front()[i]].num=exec_code.size();
+    continue_ptr.pop_front();
+    break_ptr.pop_front();
     return;
 }
 void for_gen(nas_ast& node)
 {
-    //
+    std::vector<int> new_labels;
+    continue_ptr.push_front(new_labels);
+    break_ptr.push_front(new_labels);
+
+    nas_ast& before_loop=node.get_children()[0];
+    nas_ast& condition=node.get_children()[1];
+    nas_ast& after_loop=node.get_children()[2];
+    if(before_loop.get_type()==ast_definition)
+        def_gen(before_loop);
+    else if(before_loop.get_type()!=ast_null)
+        calc_gen(before_loop);
+    int jmp_label=exec_code.size();
+    if(condition.get_type()==ast_null)
+    {
+        regist_num(1);
+        emit(op_pushn,number_table[1]);
+    }
+    else
+        calc_gen(condition);
+    int jmp_false=exec_code.size();
+    emit(op_jf);
+    blk_gen(node.get_children()[3]);
+    int continue_label=exec_code.size();
+    if(after_loop.get_type()!=ast_null)
+        calc_gen(after_loop);
+    emit(op_jmp,jmp_label);
+
+    exec_code[jmp_false].num=exec_code.size();
+
+    for(int i=0;i<continue_ptr.front().size();++i)
+        exec_code[continue_ptr.front()[i]].num=continue_label;
+    for(int i=0;i<break_ptr.front().size();++i)
+        exec_code[break_ptr.front()[i]].num=exec_code.size();
+    continue_ptr.pop_front();
+    break_ptr.pop_front();
     return;
 }
 void ret_gen(nas_ast& node)

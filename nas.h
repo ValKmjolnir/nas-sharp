@@ -8,6 +8,8 @@
 #include <list>
 #include <vector>
 #include <map>
+#include <queue>
+#include <cmath>
 
 int error=0;
 void die(std::string info="",int line=-1)
@@ -22,5 +24,10 @@ void die(std::string info="",int line=-1)
 #include "nas_lex.h"
 #include "nas_ast.h"
 #include "nas_par.h"
+#include "nas_gc.h"
+#include "nas_builtin.h"
 #include "nas_code.h"
+#include "nas_vm.h"
+
+
 #endif
