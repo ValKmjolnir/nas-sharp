@@ -5,11 +5,13 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <stack>
 #include <list>
 #include <vector>
 #include <map>
 #include <queue>
 #include <cmath>
+#include <ctime>
 
 int error=0;
 void die(std::string info="",int line=-1)

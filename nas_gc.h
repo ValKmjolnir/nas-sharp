@@ -62,6 +62,7 @@ private:
     int entry;
     int dynpara;
 public:
+    bool is_builtin;
     nas_func(nas_vm&);
     ~nas_func();
     void set_entry(int);
@@ -108,10 +109,10 @@ public:
     nas_val();
     nas_val(int,nas_vm&);
     ~nas_val();
-    void clear();
-    void set_type(int,nas_vm&);
-    void set_number(double);
-    void set_string(std::string);
+    void        clear();
+    void        set_type(int,nas_vm&);
+    void        set_num(double);
+    void        set_str(std::string);
     int         get_type();
     double      get_num();
     std::string get_str();
@@ -172,7 +173,7 @@ nas_val* nas_vec::get_val(int index)
     int vec_size=elems.size();
     if(index<-vec_size || index>=vec_size)
     {
-        std::cout<<">> [vm] nas_vec::get_val: index out of range: "<<index<<"\n";
+        std::cout<<">> [vm] nas_vec::get_val: index out of range: "<<index<<".\n";
         return NULL;
     }
     int idx[2]={index+vec_size,index};
@@ -183,7 +184,7 @@ nas_val** nas_vec::get_mem(int index)
     int vec_size=elems.size();
     if(index<-vec_size || index>=vec_size)
     {
-        std::cout<<">> [vm] nas_vec::get_mem: index out of range: "<<index<<"\n";
+        std::cout<<">> [vm] nas_vec::get_mem: index out of range: "<<index<<".\n";
         return NULL;
     }
     int idx[2]={index+vec_size,index};
@@ -248,6 +249,8 @@ nas_val* nas_hash::get_val(std::string key)
     nas_val* ret_value_addr=NULL;
     if(elems.find(key)!=elems.end())
         return elems[key];
+    if(!ret_value_addr)
+        std::cout<<">> [vm] nas_hash::get_val: cannot find member named \""<<key<<"\".\n";
     return ret_value_addr;
 }
 nas_val** nas_hash::get_mem(std::string key)
@@ -255,6 +258,8 @@ nas_val** nas_hash::get_mem(std::string key)
     nas_val** mem_addr=NULL;
     if(elems.find(key)!=elems.end())
         return &elems[key];
+    if(!mem_addr)
+        std::cout<<">> [vm] nas_hash::get_mem: cannot find member named \""<<key<<"\".\n";
     return mem_addr;
 }
 bool nas_hash::check_contain(std::string key)
@@ -268,7 +273,7 @@ nas_val* nas_hash::get_keys()
     for(std::map<std::string,nas_val*>::iterator iter=elems.begin();iter!=elems.end();++iter)
     {
         nas_val* str_addr=vm.gc_alloc(vm_str);
-        str_addr->set_string(iter->first);
+        str_addr->set_str(iter->first);
         ref_vec.add_elem(str_addr);
     }
     return ret_addr;
@@ -300,6 +305,7 @@ void nas_hash::print()
 /*functions of nas_func*/
 nas_func::nas_func(nas_vm& nvm):vm(nvm)
 {
+    is_builtin=false;
     scope=NULL;
     dynpara=-1;
     return;
@@ -501,12 +507,12 @@ void nas_val::set_type(int nas_val_type,nas_vm& nvm)
     }
     return;
 }
-void nas_val::set_number(double num)
+void nas_val::set_num(double num)
 {
     ptr.num=num;
     return;
 }
-void nas_val::set_string(std::string str)
+void nas_val::set_str(std::string str)
 {
     *ptr.str=str;
     return;

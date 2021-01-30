@@ -17,9 +17,8 @@ int main()
         if(error) continue;
         nas_ast par=proc();
         if(error) continue;
-        par.print(0);
         proc_gen(par);
-        code_print();
+        run_vm();
     }
     return 0;
 }

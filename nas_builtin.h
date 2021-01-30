@@ -40,13 +40,13 @@ nas_val* nas_builtin_type(nas_val* elem,nas_vm& vm)
     nas_val* s=vm.gc_alloc(vm_str);
     switch(elem->get_vec().get_val(0)->get_type())
     {
-        case vm_nil:  s->set_string("nil");      break;
-        case vm_num:  s->set_string("number");   break;
-        case vm_str:  s->set_string("string");   break;
-        case vm_vec:  s->set_string("vector");   break;
-        case vm_hash: s->set_string("hash");     break;
-        case vm_func: s->set_string("function"); break;
-        case vm_scop: s->set_string("scope");    break;
+        case vm_nil:  s->set_str("nil");      break;
+        case vm_num:  s->set_str("number");   break;
+        case vm_str:  s->set_str("string");   break;
+        case vm_vec:  s->set_str("vector");   break;
+        case vm_hash: s->set_str("hash");     break;
+        case vm_func: s->set_str("function"); break;
+        case vm_scop: s->set_str("scope");    break;
     }
     return s;
 }

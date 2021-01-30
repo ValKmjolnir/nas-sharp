@@ -19,7 +19,6 @@ enum opcode_type
     op_load,
 
     op_call,
-    op_callb,
     op_callv,
     op_callh,
     op_callf,
@@ -27,7 +26,6 @@ enum opcode_type
     op_mcall,
     op_mcallv,
     op_mcallh,
-    op_mcallf,
 
     op_neg,
     op_not,
@@ -79,14 +77,12 @@ struct
     {op_entry,   "entry "},
     {op_load,    "load  "},
     {op_call,    "call  "},
-    {op_callb,   "callb "},
     {op_callv,   "callv "},
     {op_callh,   "callh "},
     {op_callf,   "callf "},
     {op_mcall,   "mcall "},
     {op_mcallv,  "mcallv"},
     {op_mcallh,  "mcallh"},
-    {op_mcallf,  "mcallf"},
     {op_neg,     "neg   "},
     {op_not,     "not   "},
     {op_plus,    "plus  "},
@@ -139,26 +135,13 @@ void code_print()
                 break;
             }
         printf("0x%.8x %s 0x%.8x\n",i,tmp.data(),exec_code[i].num);
-        // switch(exec_code[i].op)
-        // {
-        //     case op_pushn: printf("(%lf)",number_table[exec_code[i].num]);
-        //     case op_pushs:
-        //     case op_load:
-        //     case op_happ:
-        //     case op_para:
-        //     case op_dynpara:
-        //     case op_call:
-        //     case op_mcall:
-        //     case op_callf:
-        //     case op_mcallf:printf("(%s)",string_table[exec_code[i].num].data());
-        // }
-        // printf("\n");
     }
     return;
 }
 void regist_str(std::string);
 void regist_num(double);
 void emit(unsigned char,unsigned int);
+void regist_builtin();
 void proc_gen(nas_ast&);
 void blk_gen(nas_ast&);
 void expr_gen(nas_ast&);
@@ -202,6 +185,12 @@ void emit(unsigned char op,unsigned int num=0)
     tmp.op=op;
     tmp.num=num;
     exec_code.push_back(tmp);
+    return;
+}
+void regist_builtin()
+{
+    for(int i=0;builtin_func[i].func_name;++i)
+        regist_str(builtin_func[i].func_name);
     return;
 }
 void proc_gen(nas_ast& root)
