@@ -195,6 +195,7 @@ void regist_builtin()
 }
 void proc_gen(nas_ast& root)
 {
+    regist_builtin();
     exec_code.clear();
     std::vector<nas_ast>& exprs=root.get_children();
     int size=exprs.size();

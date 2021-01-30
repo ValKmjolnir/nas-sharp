@@ -4,4 +4,4 @@ var fib=func(x)
     return fib(x-1)+fib(x-2);
 };
 
-fib(33);
+print(fib(30),'\n');

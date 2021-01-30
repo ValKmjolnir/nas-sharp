@@ -1,6 +1,8 @@
 #ifndef __NAS_H__
 #define __NAS_H__
 
+#pragma GCC optimize(2)
+
 #include <unistd.h>
 #include <iostream>
 #include <fstream>

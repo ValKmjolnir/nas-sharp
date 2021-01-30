@@ -186,6 +186,27 @@ void next()
         while(res[ptr] && res[ptr]!=tmp)
         {
             if(res[ptr]=='\n') ++line;
+            if(res[ptr]=='\\' && res[ptr+1])
+            {
+                switch(res[ptr+1])
+                {
+                    case 'a': token.content+='\a';break;
+                    case 'b': token.content+='\b';break;
+                    case 'f': token.content+='\f';break;
+                    case 'n': token.content+='\n';break;
+                    case 'r': token.content+='\r';break;
+                    case 't': token.content+='\t';break;
+                    case 'v': token.content+='\v';break;
+                    case '?': token.content+='\?';break;
+                    case '0': token.content+='\0';break;
+                    case '\\':token.content+='\\';break;
+                    case '\'':token.content+='\'';break;
+                    case '\"':token.content+='\"';break;
+                    default:  token.content+=res[ptr];break;
+                }
+                ptr+=2;
+                continue;
+            }
             token.content+=res[ptr++];
         }
         if(!res[ptr])

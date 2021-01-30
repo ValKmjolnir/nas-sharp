@@ -246,21 +246,17 @@ int nas_hash::size()
 }
 nas_val* nas_hash::get_val(std::string key)
 {
-    nas_val* ret_value_addr=NULL;
     if(elems.find(key)!=elems.end())
         return elems[key];
-    if(!ret_value_addr)
-        std::cout<<">> [vm] nas_hash::get_val: cannot find member named \""<<key<<"\".\n";
-    return ret_value_addr;
+    std::cout<<">> [vm] nas_hash::get_val: cannot find member named \""<<key<<"\".\n";
+    return NULL;
 }
 nas_val** nas_hash::get_mem(std::string key)
 {
-    nas_val** mem_addr=NULL;
     if(elems.find(key)!=elems.end())
         return &elems[key];
-    if(!mem_addr)
-        std::cout<<">> [vm] nas_hash::get_mem: cannot find member named \""<<key<<"\".\n";
-    return mem_addr;
+    std::cout<<">> [vm] nas_hash::get_mem: cannot find member named \""<<key<<"\".\n";
+    return NULL;
 }
 bool nas_hash::check_contain(std::string key)
 {

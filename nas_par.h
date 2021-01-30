@@ -184,6 +184,11 @@ nas_ast funcgen()
         match(tok_rcurve);
         node.add_child(paralist);
     }
+    else
+    {
+        nas_ast paralist(token.line,ast_paralist);
+        node.add_child(paralist);
+    }
     node.add_child(exprs());
     --in_func;
     return node;

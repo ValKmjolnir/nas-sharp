@@ -4,10 +4,10 @@ var h=
     'b':1,
     f:func()
     {
-        me.a=nil;
+        print(h.a);
         return;
     }
 };
 
-h.a;
+h.a='haha';
 h.f();
