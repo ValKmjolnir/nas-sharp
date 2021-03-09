@@ -55,8 +55,11 @@ void opr_pushh()
 void opr_pushf()
 {
     *(++stack_top)=vm.gc_alloc(vm_func);
-    if(local_scope.top()) (*stack_top)->get_func().set_scope(local_scope.top());
-    else (*stack_top)->get_func().set_new_closure();
+    if(local_scope.top())
+        (*stack_top)->get_func().set_scope(local_scope.top());
+    else
+        (*stack_top)->get_func().set_new_closure();
+    (*stack_top)->get_func().set_entry(exec_code[pc].num);
     return;
 }
 void opr_vapp()
@@ -79,11 +82,6 @@ void opr_para()
 void opr_dynpara()
 {
     (*stack_top)->get_func().add_para(exec_code[pc].num,true);
-    return;
-}
-void opr_entry()
-{
-    (*stack_top)->get_func().set_entry(exec_code[pc].num);
     return;
 }
 void opr_load()
@@ -202,8 +200,8 @@ void opr_callf()
     }
     return_address.push(pc);
     pc=func->get_func().get_entry()-1;
-    local_scope.push(func->get_func().get_scope());
-    local_scope.top()->get_scop().add_scope();
+    local_scope.push(vm.gc_alloc(vm_scop));
+    local_scope.top()->get_scop().set_closure(func->get_func().get_scope()->get_scop());
 
     // load parameter unfinished
     nas_vec& paras=vec->get_vec();
@@ -655,7 +653,7 @@ void opr_ret()
 {
     pc=return_address.top();
     return_address.pop();
-    local_scope.top()->get_scop().del_scope();
+    vm.del_ref(local_scope.top());
     local_scope.pop();
     nas_val* tmp=*stack_top--;
     vm.del_ref(*stack_top);
@@ -716,7 +714,6 @@ void run_vm()
         &opr_happ,
         &opr_para,
         &opr_dynpara,
-        &opr_entry,
         &opr_load,
         &opr_call,
         &opr_callv,

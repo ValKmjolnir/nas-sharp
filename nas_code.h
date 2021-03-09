@@ -14,7 +14,6 @@ enum opcode_type
     op_happ,
     op_para,
     op_dynpara,
-    op_entry,
 
     op_load,
 
@@ -74,7 +73,6 @@ struct
     {op_happ,    "happ  "},
     {op_para,    "para  "},
     {op_dynpara, "dynp  "},
-    {op_entry,   "entry "},
     {op_load,    "load  "},
     {op_call,    "call  "},
     {op_callv,   "callv "},
@@ -117,8 +115,8 @@ struct bytecode
 };
 
 std::vector<bytecode> exec_code;
-std::map<std::string,unsigned int> string_table;
-std::map<double,unsigned int> number_table;
+std::unordered_map<std::string,unsigned int> string_table;
+std::unordered_map<double,unsigned int> number_table;
 std::list<std::vector<int> > continue_ptr;
 std::list<std::vector<int> > break_ptr;
 
@@ -335,6 +333,7 @@ void hash_gen(nas_ast& node)
 }
 void func_gen(nas_ast& node)
 {
+    int pushf_label=exec_code.size();
     emit(op_pushf,0);
     std::vector<nas_ast>& parameter=node.get_children()[0].get_children();
     for(int i=0;i<parameter.size();++i)
@@ -342,7 +341,7 @@ void func_gen(nas_ast& node)
         regist_str(parameter[i].get_str());
         emit(parameter[i].get_type()==ast_para?op_para:op_dynpara,string_table[parameter[i].get_str()]);
     }
-    emit(op_entry,exec_code.size()+2);
+    exec_code[pushf_label].num=exec_code.size()+1;
     emit(op_jmp);
     int jmp_label=exec_code.size()-1;
     blk_gen(node.get_children()[1]);

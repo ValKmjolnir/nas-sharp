@@ -4,4 +4,5 @@ var fib=func(x)
     return fib(x-1)+fib(x-2);
 };
 
-fib(33);
+for(var i=0;i<4000000;i+=1);
+print(fib(10),'\n');

@@ -39,7 +39,7 @@ class nas_hash
 {
 private:
     nas_vm& vm;
-    std::map<std::string,nas_val*> elems;
+    std::unordered_map<std::string,nas_val*> elems;
 public:
     nas_hash(nas_vm&);
     ~nas_hash();
@@ -79,12 +79,10 @@ class nas_scop
 {
 private:
     nas_vm& vm;
-    std::list<std::map<int,nas_val*> > elems;
+    std::unordered_map<int,nas_val*> elems;
 public:
     nas_scop(nas_vm&);
     ~nas_scop();
-    void add_scope();
-    void del_scope();
     void add_value(int,nas_val*);
     nas_val*  get_val(int);
     nas_val** get_mem(int);
@@ -131,7 +129,6 @@ private:
 public:
     ~nas_vm();
     void clear();
-    void debug();
     nas_val* gc_alloc(int);
     void add_ref(nas_val*);
     void del_ref(nas_val*);
@@ -220,20 +217,20 @@ nas_hash::nas_hash(nas_vm& nvm):vm(nvm)
 }
 nas_hash::~nas_hash()
 {
-    for(std::map<std::string,nas_val*>::iterator iter=elems.begin();iter!=elems.end();++iter)
+    for(auto iter=elems.begin();iter!=elems.end();++iter)
         vm.del_ref(iter->second);
     elems.clear();
     return;
 }
 void nas_hash::add_elem(std::string key,nas_val* value_address)
 {
-    if(elems.find(key)==elems.end())
+    if(!elems.count(key))
         elems[key]=value_address;
     return;
 }
 void nas_hash::del_elem(std::string key)
 {
-    if(elems.find(key)!=elems.end())
+    if(elems.count(key))
     {
         vm.del_ref(elems[key]);
         elems.erase(key);
@@ -246,27 +243,27 @@ int nas_hash::size()
 }
 nas_val* nas_hash::get_val(std::string key)
 {
-    if(elems.find(key)!=elems.end())
+    if(elems.count(key))
         return elems[key];
     std::cout<<">> [vm] nas_hash::get_val: cannot find member named \""<<key<<"\".\n";
     return NULL;
 }
 nas_val** nas_hash::get_mem(std::string key)
 {
-    if(elems.find(key)!=elems.end())
+    if(elems.count(key))
         return &elems[key];
     std::cout<<">> [vm] nas_hash::get_mem: cannot find member named \""<<key<<"\".\n";
     return NULL;
 }
 bool nas_hash::check_contain(std::string key)
 {
-    return elems.find(key)!=elems.end();
+    return elems.count(key);
 }
 nas_val* nas_hash::get_keys()
 {
     nas_val* ret_addr=vm.gc_alloc(vm_vec);
     nas_vec& ref_vec=ret_addr->get_vec();
-    for(std::map<std::string,nas_val*>::iterator iter=elems.begin();iter!=elems.end();++iter)
+    for(auto iter=elems.begin();iter!=elems.end();++iter)
     {
         nas_val* str_addr=vm.gc_alloc(vm_str);
         str_addr->set_str(iter->first);
@@ -276,10 +273,10 @@ nas_val* nas_hash::get_keys()
 }
 void nas_hash::print()
 {
-    std::cout<<"{";
+    std::cout<<'{';
     if(!elems.size())
-        std::cout<<"}";
-    for(std::map<std::string,nas_val*>::iterator i=elems.begin();i!=elems.end();++i)
+        std::cout<<'}';
+    for(auto i=elems.begin();i!=elems.end();++i)
     {
         std::cout<<i->first<<":";
         nas_val* tmp=i->second;
@@ -292,9 +289,9 @@ void nas_hash::print()
             case vm_hash: tmp->get_hash().print();     break;
             case vm_func: std::cout<<"func(...){...}"; break;
         }
-        std::cout<<",}"[(++i)==elems.end()];
-        --i;
+        std::cout<<',';
     }
+    std::cout<<'}';
     return;
 }
 
@@ -359,73 +356,47 @@ nas_val* nas_func::get_scope()
 /*functions of nas_scop*/
 nas_scop::nas_scop(nas_vm& nvm):vm(nvm)
 {
-    std::map<int,nas_val*> new_scope;
-    elems.push_back(new_scope);
     return;
 }
 nas_scop::~nas_scop()
 {
-    for(std::list<std::map<int,nas_val*> >::iterator i=elems.begin();i!=elems.end();++i)
-        for(std::map<int,nas_val*>::iterator j=i->begin();j!=i->end();++j)
-            vm.del_ref(j->second);
-    elems.clear();
-    return;
-}
-void nas_scop::add_scope()
-{
-    std::map<int,nas_val*> new_scope;
-    elems.push_front(new_scope);
-    return;
-}
-void nas_scop::del_scope()
-{
-    std::map<int,nas_val*>& last_scope=elems.front();
-    for(std::map<int,nas_val*>::iterator i=last_scope.begin();i!=last_scope.end();++i)
+    for(auto i=elems.begin();i!=elems.end();++i)
         vm.del_ref(i->second);
-    elems.pop_front();
     return;
 }
 void nas_scop::add_value(int key,nas_val* value_address)
 {
-    if(elems.front().find(key)!=elems.front().end())
+    if(elems.count(key))
     {
         // if this value already exists,delete the old value and update a new value
-        nas_val* old_val_address=elems.front()[key];
+        nas_val* old_val_address=elems[key];
         vm.del_ref(old_val_address);
     }
-    elems.front()[key]=value_address;
+    elems[key]=value_address;
     return;
 }
 nas_val* nas_scop::get_val(int key)
 {
-    for(std::list<std::map<int,nas_val*> >::iterator i=elems.begin();i!=elems.end();++i)
-        if(i->find(key)!=i->end())
-            return (*i)[key];
+    if(elems.count(key))
+        return (elems)[key];
     return NULL;
 }
 nas_val** nas_scop::get_mem(int key)
 {
-    for(std::list<std::map<int,nas_val*> >::iterator i=elems.begin();i!=elems.end();++i)
-        if(i->find(key)!=i->end())
-            return &((*i)[key]);
+    if(elems.count(key))
+        return &(elems[key]);
     return NULL;
 }
 void nas_scop::set_closure(nas_scop& tmp)
 {
-    for(std::list<std::map<int,nas_val*> >::iterator i=elems.begin();i!=elems.end();++i)
-        for(std::map<int,nas_val*>::iterator j=i->begin();j!=i->end();++j)
-            vm.del_ref(j->second);
+    for(auto i=elems.begin();i!=elems.end();++i)
+        vm.del_ref(i->second);
     elems.clear();
-    for(std::list<std::map<int,nas_val*> >::iterator i=tmp.elems.begin();i!=tmp.elems.end();++i)
+    for(auto i=tmp.elems.begin();i!=tmp.elems.end();++i)
     {
-        std::map<int,nas_val*> new_scope;
-        elems.push_back(new_scope);
-        for(std::map<int,nas_val*>::iterator j=i->begin();j!=i->end();++j)
-        {
-            nas_val* value_addr=j->second;
-            vm.add_ref(value_addr);
-            elems.back()[j->first]=value_addr;
-        }
+        nas_val* value_addr=i->second;
+        ++value_addr->ref_cnt;
+        elems[i->first]=value_addr;
     }
     return;
 }
@@ -553,27 +524,6 @@ nas_vm::~nas_vm()
     while(!free_space.empty())
         free_space.pop();
     memory.clear();
-    return;
-}
-void nas_vm::debug()
-{
-    int gc_mem_size=memory.size();
-    for(int i=0;i<gc_mem_size;++i)
-        if(memory[i]->ref_cnt)
-        {
-            std::cout<<">> [debug] "<<i<<": "<<memory[i]->ref_cnt<<" ";
-            switch(memory[i]->get_type())
-            {
-                case vm_nil: std::cout<<"nil";      break;
-                case vm_num: std::cout<<"number "<<memory[i]->get_num();break;
-                case vm_str: std::cout<<"string "<<memory[i]->get_str();break;
-                case vm_vec: std::cout<<"vector";   break;
-                case vm_hash:std::cout<<"hash";     break;
-                case vm_func:std::cout<<"function"; break;
-                case vm_scop:std::cout<<"closure";  break;
-            }
-            std::cout<<"\n";
-        }
     return;
 }
 void nas_vm::clear()
