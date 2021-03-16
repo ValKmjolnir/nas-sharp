@@ -6,7 +6,7 @@ nas_val* global_scope;
 std::stack<nas_val**> mem_stack;
 std::stack<nas_val*> local_scope;
 std::stack<unsigned int> return_address;
-nas_vm vm;
+nas_gc gc;
 
 std::vector<double> runtime_number_table;
 std::vector<std::string> runtime_string_table;
@@ -27,34 +27,34 @@ void opr_nop()
 }
 void opr_nil()
 {
-    *(++stack_top)=vm.gc_alloc(vm_nil);
+    *(++stack_top)=gc.gc_alloc(vm_nil);
     return;
 }
 void opr_pushn()
 {
-    *(++stack_top)=vm.gc_alloc(vm_num);
+    *(++stack_top)=gc.gc_alloc(vm_num);
     (*stack_top)->set_num(runtime_number_table[exec_code[pc].num]);
     return;
 }
 void opr_pushs()
 {
-    *(++stack_top)=vm.gc_alloc(vm_str);
+    *(++stack_top)=gc.gc_alloc(vm_str);
     (*stack_top)->set_str(runtime_string_table[exec_code[pc].num]);
     return;
 }
 void opr_pushv()
 {
-    *(++stack_top)=vm.gc_alloc(vm_vec);
+    *(++stack_top)=gc.gc_alloc(vm_vec);
     return;
 }
 void opr_pushh()
 {
-    *(++stack_top)=vm.gc_alloc(vm_hash);
+    *(++stack_top)=gc.gc_alloc(vm_hash);
     return;
 }
 void opr_pushf()
 {
-    *(++stack_top)=vm.gc_alloc(vm_func);
+    *(++stack_top)=gc.gc_alloc(vm_func);
     if(local_scope.top())
         (*stack_top)->get_func().set_scope(local_scope.top());
     else
@@ -103,7 +103,7 @@ void opr_call()
         return;
     }
     *(++stack_top)=tmp;
-    vm.add_ref(tmp);
+    gc.add_ref(tmp);
     return;
 }
 void opr_callv()
@@ -126,7 +126,7 @@ void opr_callv()
             res=(*stack_top)->get_vec().get_val(tmp->get_num());
         else
         {
-            res=vm.gc_alloc(vm_str);
+            res=gc.gc_alloc(vm_str);
             int index=tmp->get_num();
             int len=(*stack_top)->get_str().length();
             if(index<0 || index>=len)
@@ -137,8 +137,8 @@ void opr_callv()
             std::string s=(*stack_top)->get_str();
             s=s[index];
             res->set_str(s);
-            vm.del_ref(tmp);
-            vm.del_ref(*stack_top);
+            gc.del_ref(tmp);
+            gc.del_ref(*stack_top);
             *stack_top=res;
             return;
         }
@@ -157,9 +157,9 @@ void opr_callv()
         main_loop_continue_mark=false;
         return;
     }
-    vm.add_ref(res);
-    vm.del_ref(tmp);
-    vm.del_ref(*stack_top);
+    gc.add_ref(res);
+    gc.del_ref(tmp);
+    gc.del_ref(*stack_top);
     *stack_top=res;
     return;
 }
@@ -176,8 +176,8 @@ void opr_callh()
         main_loop_continue_mark=false;
         return;
     }
-    vm.add_ref(tmp);
-    vm.del_ref(*stack_top);
+    gc.add_ref(tmp);
+    gc.del_ref(*stack_top);
     *stack_top=tmp;
     return;
 }
@@ -192,15 +192,15 @@ void opr_callf()
     }
     if(func->get_func().is_builtin)
     {
-        nas_val* ret=builtin_func[func->get_func().get_entry()].func_ptr(vec,vm);
-        vm.del_ref(vec);
-        vm.del_ref(func);
+        nas_val* ret=builtin_func[func->get_func().get_entry()].func_ptr(vec,gc);
+        gc.del_ref(vec);
+        gc.del_ref(func);
         *stack_top=ret;
         return;
     }
     return_address.push(pc);
     pc=func->get_func().get_entry()-1;
-    local_scope.push(vm.gc_alloc(vm_scop));
+    local_scope.push(gc.gc_alloc(vm_scop));
     local_scope.top()->get_scop().set_closure(func->get_func().get_scope()->get_scop());
 
     // load parameter unfinished
@@ -220,21 +220,21 @@ void opr_callf()
     for(int i=0;i<para_index.size();++i)
     {
         nas_val* t=paras.get_val(i);
-        vm.add_ref(t);
+        gc.add_ref(t);
         local_scope.top()->get_scop().add_value(para_index[i],t);
     }
     if(dynpara>=0)
     {
-        nas_val* dyn=vm.gc_alloc(vm_vec);
+        nas_val* dyn=gc.gc_alloc(vm_vec);
         for(int i=para_index.size();i<paras.size();++i)
         {
             nas_val* t=paras.get_val(i);
-            vm.add_ref(t);
+            gc.add_ref(t);
             dyn->get_vec().add_elem(t);
         }
         local_scope.top()->get_scop().add_value(dynpara,dyn);
     }
-    vm.del_ref(vec);
+    gc.del_ref(vec);
     return;
 }
 void opr_mcall()
@@ -283,7 +283,7 @@ void opr_mcallv()
         main_loop_continue_mark=false;
         return;
     }
-    vm.del_ref(tmp);
+    gc.del_ref(tmp);
     mem_stack.top()=res;
     return;
 }
@@ -310,8 +310,8 @@ void opr_neg()
     double num=std::nan("");
     if(tmp->get_type()==vm_num)
         num=-tmp->get_num();
-    vm.del_ref(tmp);
-    *stack_top=vm.gc_alloc(vm_num);
+    gc.del_ref(tmp);
+    *stack_top=gc.gc_alloc(vm_num);
     (*stack_top)->set_num(num);
     return;
 }
@@ -326,8 +326,8 @@ void opr_not()
         case vm_str:num=(!tmp->get_str().length());break;
         default:    num=0;break;
     }
-    vm.del_ref(tmp);
-    *stack_top=vm.gc_alloc(vm_num);
+    gc.del_ref(tmp);
+    *stack_top=gc.gc_alloc(vm_num);
     (*stack_top)->set_num(num);
     return;
 }
@@ -340,10 +340,10 @@ void opr_plus()
         runtime_error("plus","only numbers can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     res->set_num(num1->get_num()+num2->get_num());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -356,10 +356,10 @@ void opr_minus()
         runtime_error("minus","only numbers can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     res->set_num(num1->get_num()-num2->get_num());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -372,10 +372,10 @@ void opr_mult()
         runtime_error("mult","only numbers can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     res->set_num(num1->get_num()*num2->get_num());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -388,10 +388,10 @@ void opr_div()
         runtime_error("div","only numbers can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     res->set_num(num1->get_num()/num2->get_num());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -404,10 +404,10 @@ void opr_lnk()
         runtime_error("lnk","only strinsg can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_str);
+    nas_val* res=gc.gc_alloc(vm_str);
     res->set_str(num1->get_str()+num2->get_str());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -415,9 +415,9 @@ void opr_meq()
 {
     nas_val** mem=mem_stack.top();
     mem_stack.pop();
-    vm.del_ref(*mem);
+    gc.del_ref(*mem);
     *mem=*stack_top;
-    vm.add_ref(*mem);
+    gc.add_ref(*mem);
     return;
 }
 void opr_pluseq()
@@ -431,10 +431,10 @@ void opr_pluseq()
         runtime_error("pluseq","only numbers can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     res->set_num(num1->get_num()+num2->get_num());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *mem=res;
     return;
 }
@@ -449,10 +449,10 @@ void opr_minuseq()
         runtime_error("minuseq","only numbers can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     res->set_num(num1->get_num()-num2->get_num());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *mem=res;
     return;
 }
@@ -467,10 +467,10 @@ void opr_lnkeq()
         runtime_error("lnkeq","only strinsg can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_str);
+    nas_val* res=gc.gc_alloc(vm_str);
     res->set_str(num1->get_str()+num2->get_str());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *mem=res;
     return;
 }
@@ -485,10 +485,10 @@ void opr_multeq()
         runtime_error("multeq","only numbers can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     res->set_num(num1->get_num()*num2->get_num());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *mem=res;
     return;
 }
@@ -503,10 +503,10 @@ void opr_diveq()
         runtime_error("diveq","only numbers can take part in this calculation");
         return;
     }
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     res->set_num(num1->get_num()/num2->get_num());
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *mem=res;
     return;
 }
@@ -514,7 +514,7 @@ void opr_eq()
 {
     nas_val* num2=*stack_top--;
     nas_val* num1=*stack_top;
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     if(num1->get_type()!=num2->get_type())
         res->set_num(0);
     else if(num1->get_type()==vm_num && num2->get_type()==vm_num)
@@ -523,8 +523,8 @@ void opr_eq()
         res->set_num(num1->get_str()==num2->get_str());
     else
         res->set_num(num1==num2);
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -532,7 +532,7 @@ void opr_neq()
 {
     nas_val* num2=*stack_top--;
     nas_val* num1=*stack_top;
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     if(num1->get_type()!=num2->get_type())
         res->set_num(1);
     else if(num1->get_type()==vm_num && num2->get_type()==vm_num)
@@ -541,8 +541,8 @@ void opr_neq()
         res->set_num(num1->get_str()!=num2->get_str());
     else
         res->set_num(num1!=num2);
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -550,7 +550,7 @@ void opr_less()
 {
     nas_val* num2=*stack_top--;
     nas_val* num1=*stack_top;
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     if(num1->get_type()==vm_num && num2->get_type()==vm_num)
         res->set_num(num1->get_num()<num2->get_num());
     else if(num1->get_type()==vm_str && num2->get_type()==vm_str)
@@ -560,8 +560,8 @@ void opr_less()
         runtime_error("less","only number and string can take part in this calculation");
         return;
     }
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -569,7 +569,7 @@ void opr_leq()
 {
     nas_val* num2=*stack_top--;
     nas_val* num1=*stack_top;
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     if(num1->get_type()==vm_num && num2->get_type()==vm_num)
         res->set_num(num1->get_num()<=num2->get_num());
     else if(num1->get_type()==vm_str && num2->get_type()==vm_str)
@@ -579,8 +579,8 @@ void opr_leq()
         runtime_error("leq","only number and string can take part in this calculation");
         return;
     }
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -588,7 +588,7 @@ void opr_grt()
 {
     nas_val* num2=*stack_top--;
     nas_val* num1=*stack_top;
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     if(num1->get_type()==vm_num && num2->get_type()==vm_num)
         res->set_num(num1->get_num()>num2->get_num());
     else if(num1->get_type()==vm_str && num2->get_type()==vm_str)
@@ -598,8 +598,8 @@ void opr_grt()
         runtime_error("grt","only number and string can take part in this calculation");
         return;
     }
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
@@ -607,7 +607,7 @@ void opr_geq()
 {
     nas_val* num2=*stack_top--;
     nas_val* num1=*stack_top;
-    nas_val* res=vm.gc_alloc(vm_num);
+    nas_val* res=gc.gc_alloc(vm_num);
     if(num1->get_type()==vm_num && num2->get_type()==vm_num)
         res->set_num(num1->get_num()>=num2->get_num());
     else if(num1->get_type()==vm_str && num2->get_type()==vm_str)
@@ -617,14 +617,14 @@ void opr_geq()
         runtime_error("geq","only number and string can take part in this calculation");
         return;
     }
-    vm.del_ref(num1);
-    vm.del_ref(num2);
+    gc.del_ref(num1);
+    gc.del_ref(num2);
     *stack_top=res;
     return;
 }
 void opr_pop()
 {
-    vm.del_ref(*stack_top--);
+    gc.del_ref(*stack_top--);
     return;
 }
 void opr_jmp()
@@ -637,7 +637,7 @@ void opr_jt()
     nas_val* tmp=*stack_top--;
     if(tmp->get_type()==vm_num && tmp->get_num()) pc=exec_code[pc].num-1;
     else if(tmp->get_type()==vm_str && tmp->get_str().length()) pc=exec_code[pc].num-1;
-    vm.del_ref(tmp);
+    gc.del_ref(tmp);
     return;
 }
 void opr_jf()
@@ -646,17 +646,17 @@ void opr_jf()
     if(tmp->get_type()==vm_str && !tmp->get_str().length()) pc=exec_code[pc].num-1;
     else if(tmp->get_type()==vm_num && !tmp->get_num()) pc=exec_code[pc].num-1;
     else if(tmp->get_type()==vm_nil) pc=exec_code[pc].num-1;
-    vm.del_ref(tmp);
+    gc.del_ref(tmp);
     return;
 }
 void opr_ret()
 {
     pc=return_address.top();
     return_address.pop();
-    vm.del_ref(local_scope.top());
+    gc.del_ref(local_scope.top());
     local_scope.pop();
     nas_val* tmp=*stack_top--;
-    vm.del_ref(*stack_top);
+    gc.del_ref(*stack_top);
     *stack_top=tmp;
     return;
 }
@@ -664,12 +664,12 @@ void opr_ret()
 void init_vm()
 {
     main_loop_continue_mark=true;
-    global_scope=vm.gc_alloc(vm_scop);
+    global_scope=gc.gc_alloc(vm_scop);
     local_scope.push(nullptr);
 
     for(int i=0;builtin_func[i].func_name;++i)
     {
-        nas_val* new_builtin=vm.gc_alloc(vm_func);
+        nas_val* new_builtin=gc.gc_alloc(vm_func);
         new_builtin->get_func().is_builtin=true;
         new_builtin->get_func().set_entry(i);
         global_scope->get_scop().add_value(string_table[builtin_func[i].func_name],new_builtin);
@@ -677,7 +677,7 @@ void init_vm()
 
     val_stack=new nas_val*[16384];
     stack_top=val_stack;
-    *stack_top=vm.gc_alloc(vm_nil); // set nil in the beginning space to avoid errors
+    *stack_top=gc.gc_alloc(vm_nil); // set nil in the beginning space to avoid errors
 
     runtime_number_table.resize(number_table.size());
     for(auto iter=number_table.begin();iter!=number_table.end();++iter)
@@ -693,7 +693,7 @@ void clear_vm()
     while(!mem_stack.empty()) mem_stack.pop();
     while(!local_scope.empty()) local_scope.pop();
     while(!return_address.empty()) return_address.pop();
-    vm.clear();
+    gc.clear();
     runtime_number_table.clear();
     runtime_string_table.clear();
     return;

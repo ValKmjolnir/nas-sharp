@@ -112,7 +112,7 @@ void open(std::string filename)
     std::ifstream fin(filename,std::ios::binary);
     if(fin.fail())
     {
-        die(">> failed to open file: "+filename);
+        die("failed to open file: "+filename);
         fin.close();
         return;
     }

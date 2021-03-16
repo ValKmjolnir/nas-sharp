@@ -1,5 +1,7 @@
 # nas-sharp script
 
+this is a language for experiment
+
 stack-based virtual machine
 
 call-threading instruction dispatch

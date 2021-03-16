@@ -12,7 +12,7 @@ enum vm_type
     vm_hash,
 };
 
-class nas_vm;
+class nas_gc;
 class nas_vec;
 class nas_hash;
 class nas_func;
@@ -22,10 +22,10 @@ class nas_val;
 class nas_vec
 {
 private:
-    nas_vm& vm;
+    nas_gc& gc;
     std::vector<nas_val*> elems;
 public:
-    nas_vec(nas_vm&);
+    nas_vec(nas_gc&);
     ~nas_vec();
     void      add_elem(nas_val*);
     nas_val*  del_elem();
@@ -38,10 +38,10 @@ public:
 class nas_hash
 {
 private:
-    nas_vm& vm;
+    nas_gc& gc;
     std::unordered_map<std::string,nas_val*> elems;
 public:
-    nas_hash(nas_vm&);
+    nas_hash(nas_gc&);
     ~nas_hash();
     void      add_elem(std::string,nas_val*);
     void      del_elem(std::string);
@@ -56,14 +56,14 @@ public:
 class nas_func
 {
 private:
-    nas_vm& vm;
+    nas_gc& gc;
     nas_val* scope;
     std::vector<int> para;
     int entry;
     int dynpara;
 public:
     bool is_builtin;
-    nas_func(nas_vm&);
+    nas_func(nas_gc&);
     ~nas_func();
     void set_entry(int);
     int  get_entry();
@@ -78,10 +78,10 @@ public:
 class nas_scop
 {
 private:
-    nas_vm& vm;
+    nas_gc& gc;
     std::unordered_map<int,nas_val*> elems;
 public:
-    nas_scop(nas_vm&);
+    nas_scop(nas_gc&);
     ~nas_scop();
     void add_value(int,nas_val*);
     nas_val*  get_val(int);
@@ -105,10 +105,10 @@ protected:
 public:
     int ref_cnt;
     nas_val();
-    nas_val(int,nas_vm&);
+    nas_val(int,nas_gc&);
     ~nas_val();
     void        clear();
-    void        set_type(int,nas_vm&);
+    void        set_type(int,nas_gc&);
     void        set_num(double);
     void        set_str(std::string);
     int         get_type();
@@ -120,14 +120,14 @@ public:
     nas_scop&   get_scop();
 };
 
-class nas_vm
+class nas_gc
 {
 private:
     nas_val error_returned_value;
     std::queue<nas_val*> free_space;
     std::vector<nas_val*> memory;
 public:
-    ~nas_vm();
+    ~nas_gc();
     void clear();
     nas_val* gc_alloc(int);
     void add_ref(nas_val*);
@@ -135,7 +135,7 @@ public:
 };
 
 /*functions of nas_vec*/
-nas_vec::nas_vec(nas_vm& nvm):vm(nvm)
+nas_vec::nas_vec(nas_gc& ngc):gc(ngc)
 {
     return;
 }
@@ -143,7 +143,7 @@ nas_vec::~nas_vec()
 {
     int size=elems.size();
     for(int i=0;i<size;++i)
-        vm.del_ref(elems[i]);
+        gc.del_ref(elems[i]);
     elems.clear();
     return;
 }
@@ -211,14 +211,14 @@ void nas_vec::print()
 }
 
 /*functions of nas_hash*/
-nas_hash::nas_hash(nas_vm& nvm):vm(nvm)
+nas_hash::nas_hash(nas_gc& ngc):gc(ngc)
 {
     return;
 }
 nas_hash::~nas_hash()
 {
     for(auto iter=elems.begin();iter!=elems.end();++iter)
-        vm.del_ref(iter->second);
+        gc.del_ref(iter->second);
     elems.clear();
     return;
 }
@@ -232,7 +232,7 @@ void nas_hash::del_elem(std::string key)
 {
     if(elems.count(key))
     {
-        vm.del_ref(elems[key]);
+        gc.del_ref(elems[key]);
         elems.erase(key);
     }
     return;
@@ -261,11 +261,11 @@ bool nas_hash::check_contain(std::string key)
 }
 nas_val* nas_hash::get_keys()
 {
-    nas_val* ret_addr=vm.gc_alloc(vm_vec);
+    nas_val* ret_addr=gc.gc_alloc(vm_vec);
     nas_vec& ref_vec=ret_addr->get_vec();
     for(auto iter=elems.begin();iter!=elems.end();++iter)
     {
-        nas_val* str_addr=vm.gc_alloc(vm_str);
+        nas_val* str_addr=gc.gc_alloc(vm_str);
         str_addr->set_str(iter->first);
         ref_vec.add_elem(str_addr);
     }
@@ -296,7 +296,7 @@ void nas_hash::print()
 }
 
 /*functions of nas_func*/
-nas_func::nas_func(nas_vm& nvm):vm(nvm)
+nas_func::nas_func(nas_gc& ngc):gc(ngc)
 {
     is_builtin=false;
     scope=NULL;
@@ -306,7 +306,7 @@ nas_func::nas_func(nas_vm& nvm):vm(nvm)
 nas_func::~nas_func()
 {
     if(scope)
-        vm.del_ref(scope);
+        gc.del_ref(scope);
     return;
 }
 void nas_func::set_entry(int etr)
@@ -338,14 +338,14 @@ int nas_func::get_dynamic_para()
 }
 void nas_func::set_scope(nas_val* value_address)
 {
-    nas_val* new_closure=vm.gc_alloc(vm_scop);
+    nas_val* new_closure=gc.gc_alloc(vm_scop);
     new_closure->get_scop().set_closure(value_address->get_scop());
     scope=new_closure;
     return;
 }
 void nas_func::set_new_closure()
 {
-    scope=vm.gc_alloc(vm_scop);
+    scope=gc.gc_alloc(vm_scop);
     return;
 }
 nas_val* nas_func::get_scope()
@@ -354,14 +354,14 @@ nas_val* nas_func::get_scope()
 }
 
 /*functions of nas_scop*/
-nas_scop::nas_scop(nas_vm& nvm):vm(nvm)
+nas_scop::nas_scop(nas_gc& ngc):gc(ngc)
 {
     return;
 }
 nas_scop::~nas_scop()
 {
     for(auto i=elems.begin();i!=elems.end();++i)
-        vm.del_ref(i->second);
+        gc.del_ref(i->second);
     return;
 }
 void nas_scop::add_value(int key,nas_val* value_address)
@@ -370,7 +370,7 @@ void nas_scop::add_value(int key,nas_val* value_address)
     {
         // if this value already exists,delete the old value and update a new value
         nas_val* old_val_address=elems[key];
-        vm.del_ref(old_val_address);
+        gc.del_ref(old_val_address);
     }
     elems[key]=value_address;
     return;
@@ -390,7 +390,7 @@ nas_val** nas_scop::get_mem(int key)
 void nas_scop::set_closure(nas_scop& tmp)
 {
     for(auto i=elems.begin();i!=elems.end();++i)
-        vm.del_ref(i->second);
+        gc.del_ref(i->second);
     elems.clear();
     for(auto i=tmp.elems.begin();i!=tmp.elems.end();++i)
     {
@@ -408,7 +408,7 @@ nas_val::nas_val()
     type=vm_nil;
     return;
 }
-nas_val::nas_val(int nas_val_type,nas_vm& nvm)
+nas_val::nas_val(int nas_val_type,nas_gc& ngc)
 {
     ref_cnt=1;
     type=nas_val_type;
@@ -417,10 +417,10 @@ nas_val::nas_val(int nas_val_type,nas_vm& nvm)
         case vm_nil:  break;
         case vm_num:  ptr.num=0;                  break;
         case vm_str:  ptr.str=new std::string;    break;
-        case vm_vec:  ptr.vec=new nas_vec(nvm);   break;
-        case vm_hash: ptr.hash=new nas_hash(nvm); break;
-        case vm_func: ptr.func=new nas_func(nvm); break;
-        case vm_scop: ptr.cls=new nas_scop(nvm);  break;
+        case vm_vec:  ptr.vec=new nas_vec(ngc);   break;
+        case vm_hash: ptr.hash=new nas_hash(ngc); break;
+        case vm_func: ptr.func=new nas_func(ngc); break;
+        case vm_scop: ptr.cls=new nas_scop(ngc);  break;
     }
     return;
 }
@@ -459,7 +459,7 @@ void nas_val::clear()
     }
     return;
 }
-void nas_val::set_type(int nas_val_type,nas_vm& nvm)
+void nas_val::set_type(int nas_val_type,nas_gc& ngc)
 {
     type=nas_val_type;
     switch(nas_val_type)
@@ -467,10 +467,10 @@ void nas_val::set_type(int nas_val_type,nas_vm& nvm)
         case vm_nil:  break;
         case vm_num:  ptr.num=0;                  break;
         case vm_str:  ptr.str=new std::string;    break;
-        case vm_vec:  ptr.vec=new nas_vec(nvm);   break;
-        case vm_hash: ptr.hash=new nas_hash(nvm); break;
-        case vm_func: ptr.func=new nas_func(nvm); break;
-        case vm_scop: ptr.cls=new nas_scop(nvm);  break;
+        case vm_vec:  ptr.vec=new nas_vec(ngc);   break;
+        case vm_hash: ptr.hash=new nas_hash(ngc); break;
+        case vm_func: ptr.func=new nas_func(ngc); break;
+        case vm_scop: ptr.cls=new nas_scop(ngc);  break;
     }
     return;
 }
@@ -513,8 +513,8 @@ nas_scop& nas_val::get_scop()
     return *ptr.cls;
 }
 
-/*functions of nas_vm*/
-nas_vm::~nas_vm()
+/*functions of nas_gc*/
+nas_gc::~nas_gc()
 {
     int gc_mem_size=memory.size();
     for(int i=0;i<gc_mem_size;++i)
@@ -526,7 +526,7 @@ nas_vm::~nas_vm()
     memory.clear();
     return;
 }
-void nas_vm::clear()
+void nas_gc::clear()
 {
     int gc_mem_size=memory.size();
     for(int i=0;i<gc_mem_size;++i)
@@ -538,7 +538,7 @@ void nas_vm::clear()
     memory.clear();
     return;
 }
-nas_val* nas_vm::gc_alloc(int val_type)
+nas_val* nas_gc::gc_alloc(int val_type)
 {
     if(free_space.empty())
     {
@@ -552,12 +552,12 @@ nas_val* nas_vm::gc_alloc(int val_type)
     ret->set_type(val_type,*this);
     return ret;
 }
-void nas_vm::add_ref(nas_val* value_address)
+void nas_gc::add_ref(nas_val* value_address)
 {
     ++value_address->ref_cnt;
     return;
 }
-void nas_vm::del_ref(nas_val* value_address)
+void nas_gc::del_ref(nas_val* value_address)
 {
     --value_address->ref_cnt;
     if(!value_address->ref_cnt)

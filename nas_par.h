@@ -34,7 +34,9 @@ void match(int type)
     next();
     return;
 }
+
 nas_ast proc();
+bool func_end(nas_ast&);
 nas_ast expr();
 nas_ast exprs();
 nas_ast listgen();
@@ -64,6 +66,15 @@ nas_ast proc()
     while(token.type!=tok_eof)
         root.add_child(expr());
     return root;
+}
+
+bool func_end(nas_ast& node)
+{
+    if(node.get_type()==ast_func)
+        return true;
+    else if(node.get_children().size())
+        return func_end(node.get_children().back());
+    return false;
 }
 
 nas_ast expr()
@@ -103,7 +114,7 @@ nas_ast expr()
             break;
     }
     int bk_tp=node.get_type();
-    if(token.type==tok_semi || (bk_tp!=ast_while && bk_tp!=ast_for && bk_tp!=ast_conditional))
+    if(token.type==tok_semi || (bk_tp!=ast_while && bk_tp!=ast_for && bk_tp!=ast_conditional && !func_end(node)))
         match(tok_semi);
     return node;
 }

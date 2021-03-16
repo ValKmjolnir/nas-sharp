@@ -5,11 +5,11 @@ var f=func(x)
         m=func(y)
         {
             return x/y;
-        };
+        }
     else if(x<50)
         m=func(y)
         {
             return x*y;
-        };
+        }
     return m;
 };
