@@ -682,17 +682,22 @@ void init_vm()
     runtime_number_table.resize(number_table.size());
     for(auto iter=number_table.begin();iter!=number_table.end();++iter)
         runtime_number_table[iter->second]=iter->first;
+    number_table.clear();
     runtime_string_table.resize(string_table.size());
     for(auto iter=string_table.begin();iter!=string_table.end();++iter)
         runtime_string_table[iter->second]=iter->first;
+    string_table.clear();
     return;
 }
 void clear_vm()
 {
     delete []val_stack;
-    while(!mem_stack.empty()) mem_stack.pop();
-    while(!local_scope.empty()) local_scope.pop();
-    while(!return_address.empty()) return_address.pop();
+    while(!mem_stack.empty())
+        mem_stack.pop();
+    while(!local_scope.empty())
+        local_scope.pop();
+    while(!return_address.empty())
+        return_address.pop();
     gc.clear();
     runtime_number_table.clear();
     runtime_string_table.clear();

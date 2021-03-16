@@ -16,8 +16,10 @@ int main()
         open(filename);
         if(error) continue;
         nas_ast par=proc();
+        res="";
         if(error) continue;
         proc_gen(par);
+        par.get_children().clear();
         run_vm();
     }
     return 0;
