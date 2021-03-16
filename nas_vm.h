@@ -8,7 +8,7 @@ std::stack<nas_val*> local_scope;
 std::stack<unsigned int> return_address;
 nas_gc gc;
 
-std::vector<double> runtime_number_table;
+std::vector<nas_val*> runtime_number_table;
 std::vector<std::string> runtime_string_table;
 nas_val** val_stack;
 nas_val** stack_top;
@@ -27,13 +27,14 @@ void opr_nop()
 }
 void opr_nil()
 {
-    *(++stack_top)=gc.gc_alloc(vm_nil);
+    *(++stack_top)=*val_stack;
+    ++(*stack_top)->ref_cnt;
     return;
 }
 void opr_pushn()
 {
-    *(++stack_top)=gc.gc_alloc(vm_num);
-    (*stack_top)->set_num(runtime_number_table[exec_code[pc].num]);
+    *(++stack_top)=runtime_number_table[exec_code[pc].num];
+    ++(*stack_top)->ref_cnt;
     return;
 }
 void opr_pushs()
@@ -681,7 +682,12 @@ void init_vm()
 
     runtime_number_table.resize(number_table.size());
     for(auto iter=number_table.begin();iter!=number_table.end();++iter)
-        runtime_number_table[iter->second]=iter->first;
+    {
+        nas_val* num=new nas_val;
+        num->set_type(vm_num,gc);
+        num->set_num(iter->first);
+        runtime_number_table[iter->second]=num;
+    }
     number_table.clear();
     runtime_string_table.resize(string_table.size());
     for(auto iter=string_table.begin();iter!=string_table.end();++iter)
@@ -699,6 +705,8 @@ void clear_vm()
     while(!return_address.empty())
         return_address.pop();
     gc.clear();
+    for(auto i=runtime_number_table.begin();i!=runtime_number_table.end();++i)
+        delete *i;
     runtime_number_table.clear();
     runtime_string_table.clear();
     return;
