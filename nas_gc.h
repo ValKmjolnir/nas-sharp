@@ -12,19 +12,18 @@ enum vm_type
     vm_hash,
 };
 
-class nas_gc;
-class nas_vec;
-class nas_hash;
-class nas_func;
-class nas_scop;
-class nas_val;
+struct nas_gc;
+struct nas_vec;
+struct nas_hash;
+struct nas_func;
+struct nas_scop;
+struct nas_val;
 
-class nas_vec
+struct nas_vec
 {
-private:
     nas_gc& gc;
     std::vector<nas_val*> elems;
-public:
+
     nas_vec(nas_gc&);
     ~nas_vec();
     void      add_elem(nas_val*);
@@ -35,12 +34,11 @@ public:
     void      print();
 };
 
-class nas_hash
+struct nas_hash
 {
-private:
     nas_gc& gc;
     std::unordered_map<std::string,nas_val*> elems;
-public:
+
     nas_hash(nas_gc&);
     ~nas_hash();
     void      add_elem(std::string,nas_val*);
@@ -53,16 +51,15 @@ public:
     void      print();
 };
 
-class nas_func
+struct nas_func
 {
-private:
     nas_gc& gc;
     nas_val* scope;
     std::vector<int> para;
     int entry;
     int dynpara;
-public:
     bool is_builtin;
+
     nas_func(nas_gc&);
     ~nas_func();
     void set_entry(int);
@@ -75,12 +72,11 @@ public:
     nas_val* get_scope();
 };
 
-class nas_scop
+struct nas_scop
 {
-private:
     nas_gc& gc;
     std::unordered_map<int,nas_val*> elems;
-public:
+
     nas_scop(nas_gc&);
     ~nas_scop();
     void add_value(int,nas_val*);
@@ -89,9 +85,8 @@ public:
     void set_closure(nas_scop&);
 };
 
-class nas_val
+struct nas_val
 {
-protected:
     int type;
     union 
     {
@@ -102,8 +97,9 @@ protected:
         nas_func*    func;
         nas_scop*    cls;
     }ptr;
-public:
+    bool mark;
     int ref_cnt;
+    
     nas_val();
     nas_val(int,nas_gc&);
     ~nas_val();
@@ -404,12 +400,14 @@ void nas_scop::set_closure(nas_scop& tmp)
 /*functions of nas_val*/
 nas_val::nas_val()
 {
+    mark=false;
     ref_cnt=1;
     type=vm_nil;
     return;
 }
 nas_val::nas_val(int nas_val_type,nas_gc& ngc)
 {
+    mark=false;
     ref_cnt=1;
     type=nas_val_type;
     switch(nas_val_type)

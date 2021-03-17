@@ -2,17 +2,124 @@
 #define __NAS_VM_H__
 
 bool main_loop_continue_mark;
+nas_val* nil_addr;
 nas_val* global_scope;
 std::stack<nas_val**> mem_stack;
-std::stack<nas_val*> local_scope;
+std::list<nas_val*> local_scope;
 std::stack<unsigned int> return_address;
 nas_gc gc;
 
 std::vector<nas_val*> runtime_number_table;
-std::vector<std::string> runtime_string_table;
+std::vector<nas_val*> runtime_string_table;
 nas_val** val_stack;
 nas_val** stack_top;
 int pc;
+
+// std::list<nas_val*> free_space;
+// std::vector<nas_val*> memory;
+// std::list<nas_val*> marked;
+// void sweep()
+// {
+//     int size=memory.size();
+//     for(int i=0;i<size;++i)
+//         if(!memory[i]->mark)
+//         {
+//             memory[i]->clear();
+//             free_space.push_back(memory[i]);
+//         }
+//     return;
+// }
+// void collect_vec(nas_val* addr)
+// {
+//     std::vector<nas_val*>& ref=addr->get_vec().elems;
+//     int size=ref.size();
+//     for(int i=0;i<size;++i)
+//     {
+//         ref[i]->mark=true;
+//         marked.push_back(ref[i]);
+//     }
+//     return;
+// }
+// void collect_hash(nas_val* addr)
+// {
+//     std::unordered_map<std::string,nas_val*>& ref=addr->get_hash().elems;
+//     for(auto i=ref.begin();i!=ref.end();++i)
+//     {
+//         i->second->mark=true;
+//         marked.push_back(i->second);
+//     }
+//     return;
+// }
+// void collect_scop(nas_val* addr)
+// {
+//     std::unordered_map<int,nas_val*>& ref=addr->get_scop().elems;
+//     for(auto i=ref.begin();i!=ref.end();++i)
+//     {
+//         i->second->mark=true;
+//         marked.push_back(i->second);
+//     }
+//     return;
+// }
+// void mark()
+// {
+//     for(nas_val** i=val_stack;i<=stack_top;++i)
+//     {
+//         (*i)->mark=true;
+//         marked.push_back(*i);
+//         switch((*i)->get_type())
+//         {
+//             case vm_vec:collect_vec(*i);break;
+//             case vm_hash:collect_hash(*i);break;
+//             case vm_func:collect_scop((*i)->get_func().get_scope());break;
+//             case vm_scop:collect_scop(*i);break;
+//         }
+//     }
+//     for(auto i=local_scope.begin();i!=local_scope.end();++i)
+//     {
+//         (*i)->mark=true;
+//         marked.push_back(*i);
+//         collect_scop(*i);
+//     }
+//     global_scope->mark=true;
+//     marked.push_back(global_scope);
+//     collect_scop(global_scope);
+//     return;
+// }
+// nas_val* gc_alloc(int type)
+// {
+//     if(!free_space.empty())
+//     {
+//         nas_val* new_addr=free_space.front();
+//         free_space.pop_front();
+//         new_addr->set_type(type,gc);
+//         return new_addr;
+//     }
+//     else
+//     {
+//         mark();
+//         sweep();
+//         for(auto i=marked.begin();i!=marked.end();++i)
+//             (*i)->mark=false;
+//     }
+//     if(!free_space.empty())
+//     {
+//         nas_val* new_addr=free_space.front();
+//         free_space.pop_front();
+//         new_addr->set_type(type,gc);
+//         return new_addr;
+//     }
+//     nas_val* new_addr=new nas_val;
+//     new_addr->set_type(type,gc);
+//     return new_addr;
+// }
+// void gc_clean()
+// {
+//     int size=memory.size();
+//     for(int i=0;i<size;++i)
+//         delete memory[i];
+//     free_space.clear();
+//     return;
+// }
 
 void runtime_error(std::string opname,std::string info)
 {
@@ -27,8 +134,8 @@ void opr_nop()
 }
 void opr_nil()
 {
-    *(++stack_top)=*val_stack;
-    ++(*stack_top)->ref_cnt;
+    *(++stack_top)=nil_addr;
+    ++nil_addr->ref_cnt;
     return;
 }
 void opr_pushn()
@@ -39,8 +146,8 @@ void opr_pushn()
 }
 void opr_pushs()
 {
-    *(++stack_top)=gc.gc_alloc(vm_str);
-    (*stack_top)->set_str(runtime_string_table[exec_code[pc].num]);
+    *(++stack_top)=runtime_string_table[exec_code[pc].num];
+    ++(*stack_top)->ref_cnt;
     return;
 }
 void opr_pushv()
@@ -56,8 +163,8 @@ void opr_pushh()
 void opr_pushf()
 {
     *(++stack_top)=gc.gc_alloc(vm_func);
-    if(local_scope.top())
-        (*stack_top)->get_func().set_scope(local_scope.top());
+    if(local_scope.front())
+        (*stack_top)->get_func().set_scope(local_scope.front());
     else
         (*stack_top)->get_func().set_new_closure();
     (*stack_top)->get_func().set_entry(exec_code[pc].num);
@@ -72,7 +179,7 @@ void opr_vapp()
 void opr_happ()
 {
     nas_val* tmp=*stack_top--;
-    (*stack_top)->get_hash().add_elem(runtime_string_table[exec_code[pc].num],tmp);
+    (*stack_top)->get_hash().add_elem(runtime_string_table[exec_code[pc].num]->get_str(),tmp);
     return;
 }
 void opr_para()
@@ -87,8 +194,8 @@ void opr_dynpara()
 }
 void opr_load()
 {
-    if(local_scope.top())
-        local_scope.top()->get_scop().add_value(exec_code[pc].num,*stack_top--);
+    if(local_scope.front())
+        local_scope.front()->get_scop().add_value(exec_code[pc].num,*stack_top--);
     else
         global_scope->get_scop().add_value(exec_code[pc].num,*stack_top--);
     return;
@@ -96,11 +203,11 @@ void opr_load()
 void opr_call()
 {
     nas_val* tmp=nullptr;
-    if(local_scope.top()) tmp=local_scope.top()->get_scop().get_val(exec_code[pc].num);
+    if(local_scope.front()) tmp=local_scope.front()->get_scop().get_val(exec_code[pc].num);
     if(!tmp) tmp=global_scope->get_scop().get_val(exec_code[pc].num);
     if(!tmp)
     {
-        runtime_error("call","cannot find value named \""+runtime_string_table[exec_code[pc].num]+"\"");
+        runtime_error("call","cannot find value named \""+runtime_string_table[exec_code[pc].num]->get_str()+"\"");
         return;
     }
     *(++stack_top)=tmp;
@@ -171,7 +278,7 @@ void opr_callh()
         runtime_error("callh","must call a hash");
         return;
     }
-    nas_val* tmp=(*stack_top)->get_hash().get_val(runtime_string_table[exec_code[pc].num]);
+    nas_val* tmp=(*stack_top)->get_hash().get_val(runtime_string_table[exec_code[pc].num]->get_str());
     if(!tmp)
     {
         main_loop_continue_mark=false;
@@ -201,8 +308,8 @@ void opr_callf()
     }
     return_address.push(pc);
     pc=func->get_func().get_entry()-1;
-    local_scope.push(gc.gc_alloc(vm_scop));
-    local_scope.top()->get_scop().set_closure(func->get_func().get_scope()->get_scop());
+    local_scope.push_front(gc.gc_alloc(vm_scop));
+    local_scope.front()->get_scop().set_closure(func->get_func().get_scope()->get_scop());
 
     // load parameter unfinished
     nas_vec& paras=vec->get_vec();
@@ -222,7 +329,7 @@ void opr_callf()
     {
         nas_val* t=paras.get_val(i);
         gc.add_ref(t);
-        local_scope.top()->get_scop().add_value(para_index[i],t);
+        local_scope.front()->get_scop().add_value(para_index[i],t);
     }
     if(dynpara>=0)
     {
@@ -233,7 +340,7 @@ void opr_callf()
             gc.add_ref(t);
             dyn->get_vec().add_elem(t);
         }
-        local_scope.top()->get_scop().add_value(dynpara,dyn);
+        local_scope.front()->get_scop().add_value(dynpara,dyn);
     }
     gc.del_ref(vec);
     return;
@@ -241,11 +348,11 @@ void opr_callf()
 void opr_mcall()
 {
     nas_val** tmp=nullptr;
-    if(local_scope.top()) tmp=local_scope.top()->get_scop().get_mem(exec_code[pc].num);
+    if(local_scope.front()) tmp=local_scope.front()->get_scop().get_mem(exec_code[pc].num);
     if(!tmp) tmp=global_scope->get_scop().get_mem(exec_code[pc].num);
     if(!tmp)
     {
-        runtime_error("mcall","cannot find value named \""+runtime_string_table[exec_code[pc].num]+"\"");
+        runtime_error("mcall","cannot find value named \""+runtime_string_table[exec_code[pc].num]->get_str()+"\"");
         return;
     }
     mem_stack.push(tmp);
@@ -296,7 +403,7 @@ void opr_mcallh()
         runtime_error("mcallh","must call a hash");
         return;
     }
-    nas_val** res=(*mem)->get_hash().get_mem(runtime_string_table[exec_code[pc].num]);
+    nas_val** res=(*mem)->get_hash().get_mem(runtime_string_table[exec_code[pc].num]->get_str());
     if(!res)
     {
         main_loop_continue_mark=false;
@@ -654,8 +761,8 @@ void opr_ret()
 {
     pc=return_address.top();
     return_address.pop();
-    gc.del_ref(local_scope.top());
-    local_scope.pop();
+    gc.del_ref(local_scope.front());
+    local_scope.pop_front();
     nas_val* tmp=*stack_top--;
     gc.del_ref(*stack_top);
     *stack_top=tmp;
@@ -666,7 +773,7 @@ void init_vm()
 {
     main_loop_continue_mark=true;
     global_scope=gc.gc_alloc(vm_scop);
-    local_scope.push(nullptr);
+    local_scope.push_front(nullptr);
 
     for(int i=0;builtin_func[i].func_name;++i)
     {
@@ -678,6 +785,7 @@ void init_vm()
 
     val_stack=new nas_val*[16384];
     stack_top=val_stack;
+    nil_addr=gc.gc_alloc(vm_nil);
     *stack_top=gc.gc_alloc(vm_nil); // set nil in the beginning space to avoid errors
 
     runtime_number_table.resize(number_table.size());
@@ -691,7 +799,12 @@ void init_vm()
     number_table.clear();
     runtime_string_table.resize(string_table.size());
     for(auto iter=string_table.begin();iter!=string_table.end();++iter)
-        runtime_string_table[iter->second]=iter->first;
+    {
+        nas_val* str=new nas_val;
+        str->set_type(vm_str,gc);
+        str->set_str(iter->first);
+        runtime_string_table[iter->second]=str;
+    }
     string_table.clear();
     return;
 }
@@ -701,11 +814,13 @@ void clear_vm()
     while(!mem_stack.empty())
         mem_stack.pop();
     while(!local_scope.empty())
-        local_scope.pop();
+        local_scope.pop_front();
     while(!return_address.empty())
         return_address.pop();
     gc.clear();
     for(auto i=runtime_number_table.begin();i!=runtime_number_table.end();++i)
+        delete *i;
+    for(auto i=runtime_string_table.begin();i!=runtime_string_table.end();++i)
         delete *i;
     runtime_number_table.clear();
     runtime_string_table.clear();
