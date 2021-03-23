@@ -12,9 +12,12 @@ enum token_type
     tok_id,
     tok_num,
     tok_str,
-    tok_lcurve,tok_rcurve,
-    tok_lbracket,tok_rbracket,
-    tok_lbrace,tok_rbrace,
+    tok_lcurve,
+    tok_rcurve,
+    tok_lbracket,
+    tok_rbracket,
+    tok_lbrace,
+    tok_rbrace,
     tok_var,
     tok_func,
     tok_if,
@@ -106,7 +109,13 @@ struct
 int line;
 int ptr;
 std::string res;
-struct{int type;int line;std::string content;} token;
+struct
+{
+    int type;
+    int line;
+    std::string content;
+} token;
+
 void open(std::string filename)
 {
     std::ifstream fin(filename,std::ios::binary);

@@ -1,131 +1,151 @@
 
-var neuron=
+rand(time(0));
+
+var new_neuron=func()
 {
-    in:0,
-    out:0,
-    diff:0,
-    bia:0,
-    w:[]
-};
-
-var INUM=2;
-var HNUM=4;
-var ONUM=1;
-
-var input_layer=[];
-var hidden=[];
-var output=[];
-var expect=[];
-
-var difftanh=func(x)
-{
-    var ret=tanh(x);
-    return 1-ret*ret;
-};
-
-var diffsigmoid=func(x)
-{
-    var ret=sigmoid(x);
-    return ret*(1-ret);
-};
-
-var init=func()
-{
-    for(var i=0;i<INUM;i+=1){append(input_layer,0);}
-    for(var i=0;i<HNUM;i+=1)
-    {
-        append(hidden,neuron);
-        for(var j=0;j<INUM;j+=1){append(hidden[i].w,rand());}
-        hidden[i].bia=rand();
-    }
-    for(var i=0;i<ONUM;i+=1)
-    {
-        append(expect,0);
-        append(output,neuron);
-        for(var j=0;j<HNUM;j+=1){append(output[i].w,rand());}
-        output[i].bia=rand();
-    }
-    return;
-};
-
-var calc=func()
-{
-    for(var i=0;i<HNUM;i+=1)
-    {
-        hidden[i].in=hidden[i].bia;
-        for(var j=0;j<INUM;j+=1){hidden[i].in+=input_layer[j]*hidden[i].w[j];}
-        hidden[i].out=tanh(hidden[i].in);
-    }
-    for(var i=0;i<ONUM;i+=1)
-    {
-        output[i].in=output[i].bia;
-        for(var j=0;j<HNUM;j+=1){output[i].in+=hidden[j].out*output[i].w[j];}
-        output[i].out=sigmoid(output[i].in);
-    }
-    var error=0;
-    for(var i=0;i<ONUM;i+=1){error+=(expect[i]-output[i].out)*(expect[i]-output[i].out);}
-    error*=0.5;
-    return error;
-};
-
-var back=func()
-{
-    var lr=0.9;
-    for(var i=0;i<ONUM;i+=1){output[i].diff=(expect[i]-output[i].out)*diffsigmoid(output[i].in);}
-    for(var i=0;i<HNUM;i+=1)
-    {
-        hidden[i].diff=0;
-        for(var j=0;j<ONUM;j+=1){hidden[i].diff+=output[j].diff*output[j].w[i];}
-        hidden[i].diff*=difftanh(hidden[i].in);
-    }
-    for(var i=0;i<HNUM;i+=1)
-    {
-        hidden[i].bia+=lr*hidden[i].diff;
-        for(var j=0;j<INUM;j+=1){hidden[i].w[j]+=lr*input_layer[j]*hidden[i].diff;}
-    }
-    for(var i=0;i<ONUM;i+=1)
-    {
-        output[i].bia+=lr*output[i].diff;
-        for(var j=0;j<HNUM;j+=1){output[i].w[j]+=lr*hidden[j].out*output[i].diff;}
-    }
-    return;
-};
-
-init();
-var cnt=0;
-var total_error=10;
-while(total_error>0.001)
-{
-    total_error=0;
-    input_layer[0]=1;input_layer[1]=1;expect[0]=1;
-    total_error+=calc();
-    back();
-    input_layer[0]=1;input_layer[1]=0;expect[0]=1;
-    total_error+=calc();
-    back();
-    input_layer[0]=0;input_layer[1]=1;expect[0]=1;
-    total_error+=calc();
-    back();
-    input_layer[0]=0;input_layer[1]=0;expect[0]=0;
-    total_error+=calc();
-    back();
-    cnt+=1;
-    if(cnt==10)
-    {
-        print('10 times: ',total_error,'\n');
-        cnt=0;
-    }
+    var neuron={
+        in:0,
+        out:0,
+        w:[],
+        bia:0,
+        diff:0
+    };
+    return neuron;
 }
 
-input_layer[0]=1;input_layer[1]=1;expect[0]=1;
-calc();
-print('1 or 1: ',output[0].out,'\n');
-input_layer[0]=1;input_layer[1]=0;expect[0]=1;
-calc();
-print('1 or 0: ',output[0].out,'\n');
-input_layer[0]=0;input_layer[1]=1;expect[0]=1;
-calc();
-print('0 or 1: ',output[0].out,'\n');
-input_layer[0]=0;input_layer[1]=0;expect[0]=0;
-calc();
-print('0 or 0: ',output[0].out,'\n');
+var sigmoid=func(x)
+{
+    return 1/(1+exp(-x));
+}
+var diffsigmoid=func(x)
+{
+    x=sigmoid(x);
+    return x*(1-x);
+}
+
+var inum=2;
+var hnum=4;
+var onum=1;
+var lr=0.1;
+var training_set=[[0,0],[0,1],[1,0],[1,1]];
+var expect=[[0],[1],[1],[0]];
+
+var hidden=[];
+for(var i=0;i<hnum;i+=1)
+{
+    append(hidden,new_neuron());
+    for(var j=0;j<inum;j+=1)
+        append(hidden[i].w,2*rand());
+    hidden[i].bia=5*rand();
+}
+
+var output=[];
+for(var i=0;i<onum;i+=1)
+{
+    append(output,new_neuron());
+    for(var j=0;j<hnum;j+=1)
+        append(output[i].w,2*rand());
+    output[i].bia=5*rand();
+}
+
+var forward=func(x)
+{
+    var input=training_set[x];
+    for(var i=0;i<hnum;i+=1)
+    {
+        hidden[i].in=hidden[i].bia;
+        for(var j=0;j<inum;j+=1)
+            hidden[i].in+=hidden[i].w[j]*input[j];
+        hidden[i].out=sigmoid(hidden[i].in);
+    }
+    for(var i=0;i<onum;i+=1)
+    {
+        output[i].in=output[i].bia;
+        for(var j=0;j<hnum;j+=1)
+            output[i].in+=output[i].w[j]*hidden[j].out;
+        output[i].out=sigmoid(output[i].in);
+    }
+    return;
+}
+var run=func(vec)
+{
+    var input=vec;
+    for(var i=0;i<hnum;i+=1)
+    {
+        hidden[i].in=hidden[i].bia;
+        for(var j=0;j<inum;j+=1)
+            hidden[i].in+=hidden[i].w[j]*input[j];
+        hidden[i].out=sigmoid(hidden[i].in);
+    }
+    for(var i=0;i<onum;i+=1)
+    {
+        output[i].in=output[i].bia;
+        for(var j=0;j<hnum;j+=1)
+            output[i].in+=output[i].w[j]*hidden[j].out;
+        output[i].out=sigmoid(output[i].in);
+    }
+    return;
+}
+var get_error=func(x)
+{
+    var error=0;
+    var expect_set=expect[x];
+    for(var i=0;i<onum;i+=1)
+        error+=(expect_set[i]-output[i].out)*(expect_set[i]-output[i].out);
+    error*=0.5;
+    return error;
+}
+var backward=func(x)
+{
+    var input=training_set[x];
+    var expect_set=expect[x];
+    for(var i=0;i<onum;i+=1)
+        output[i].diff=(expect_set[i]-output[i].out)*diffsigmoid(output[i].in);
+    for(var i=0;i<hnum;i+=1)
+    {
+        hidden[i].diff=0;
+        for(var j=0;j<onum;j+=1)
+            hidden[i].diff+=output[j].w[i]*output[j].diff;
+        hidden[i].diff*=diffsigmoid(hidden[i].in);
+    }
+    for(var i=0;i<hnum;i+=1)
+    {
+        hidden[i].bia+=hidden[i].diff;
+        for(var j=0;j<inum;j+=1)
+            hidden[i].w[j]+=hidden[i].diff*input[j];
+    }
+    for(var i=0;i<onum;i+=1)
+    {
+        output[i].bia+=output[i].diff;
+        for(var j=0;j<hnum;j+=1)
+            output[i].w[j]+=output[i].diff*hidden[j].out;
+    }
+    return;
+}
+
+var cnt=0;
+var show=0;
+var error=10000;
+while(error>0.0005)
+{
+    error=0;
+    for(var i=0;i<4;i+=1)
+    {
+        forward(i);
+        error+=get_error(i);
+        backward(i);
+    }
+    cnt+=1;
+    show+=1;
+    if(show==200)
+    {
+        show=0;
+        print('epoch ',cnt,':',error,'\r');
+    }
+}
+print('finished after ',cnt,' epoch.\n');
+for(var i=0;i<4;i+=1)
+{
+    run(training_set[i]);
+    print(training_set[i],': ',output[0].out,'\n');
+}

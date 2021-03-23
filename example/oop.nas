@@ -1,16 +1,19 @@
-var new=func(name,age)
+var student=func(name,age)
 {
-    var student={name:name,age:age};
+    var val={
+        name:name,
+        age:age
+    };
     return
     {
-        setname:func(name){student.name=name;},
-        getname:func(){return student.name;},
-        setage:func(age){student.age=age;},
-        getage:func(){return student.age;}
+        setname:func(name){val.name=name;},
+        getname:func(){return val.name;},
+        setage:func(age){val.age=age;},
+        getage:func(){return val.age;}
     };
 }
 
-var s=new("steve",24);
+var s=student("steve",24);
 print(s.getname(),' ',s.getage(),'\n');
 s.setname("alex");
 print(s.getname(),' ',s.getage(),'\n');
