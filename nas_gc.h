@@ -266,8 +266,7 @@ nas_val** nas_scop::get_mem(int key)
 }
 void nas_scop::set_closure(nas_scop* tmp)
 {
-    for(auto i=tmp->elems.begin();i!=tmp->elems.end();++i)
-        elems[i->first]=i->second;
+    elems=tmp->elems;
     return;
 }
 
@@ -327,9 +326,7 @@ void nas_val::clear()
 void sweep()
 {
     int size=memory.size();
-    int begin=rand()%size;
-    int end=(begin+size)>>1;
-    for(int i=begin;i<end;++i)
+    for(int i=0;i<size;++i)
     {
         if(!memory[i]->mark)
         {

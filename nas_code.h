@@ -369,7 +369,6 @@ void calc_gen(nas_ast& node)
         case ast_plus:
         case ast_mult:
         case ast_div:
-        case ast_link:
             calc_gen(node.get_children()[0]);
             calc_gen(node.get_children()[1]);
             switch(node.get_type())
@@ -377,8 +376,12 @@ void calc_gen(nas_ast& node)
                 case ast_plus:emit(op_plus);break;
                 case ast_mult:emit(op_mult);break;
                 case ast_div: emit(op_div); break;
-                case ast_link:emit(op_lnk); break;
             }
+            break;
+        case ast_link:
+            calc_gen(node.get_children()[0]);
+            calc_gen(node.get_children()[1]);
+            emit(op_lnk);
             break;
         case ast_cmpeq:
         case ast_neq:
