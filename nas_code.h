@@ -339,6 +339,19 @@ void calc_gen(nas_ast& node)
         case ast_list: vec_gen(node);  break;
         case ast_hash: hash_gen(node); break;
         case ast_func: func_gen(node); break;
+        case ast_trino:
+            {
+                calc_gen(node.get_children()[0]);
+                int jf_label=exec_code.size();
+                emit(op_jf,0);
+                calc_gen(node.get_children()[1]);
+                int jmp_label=exec_code.size();
+                emit(op_jmp,0);
+                exec_code[jf_label].num=exec_code.size();
+                calc_gen(node.get_children()[2]);
+                exec_code[jmp_label].num=exec_code.size();
+            }
+            break;
         case ast_eq:
         case ast_pluseq:
         case ast_minuseq:
@@ -415,10 +428,8 @@ void vec_gen(nas_ast& node)
     emit(op_pushv,0);
     std::vector<nas_ast>& members=node.get_children();
     for(int i=0;i<members.size();++i)
-    {
         calc_gen(members[i]);
-        emit(op_vapp);
-    }
+    emit(op_vapp,members.size());
     return;
 }
 void hash_gen(nas_ast& node)

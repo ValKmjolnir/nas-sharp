@@ -109,7 +109,7 @@ nas_ast expr()
         case tok_ret:    node=retgen();      break;
         case tok_semi:break;
         default:
-            die(" expect expression.",token.line);
+            die("expect expression.",token.line);
             panic();
             break;
     }

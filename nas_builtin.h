@@ -7,6 +7,7 @@ nas_val* nas_builtin_time(nas_val*);
 nas_val* nas_builtin_rand(nas_val*);
 nas_val* nas_builtin_append(nas_val*);
 nas_val* nas_builtin_exp(nas_val*);
+nas_val* nas_builtin_system(nas_val*);
 
 struct
 {
@@ -20,6 +21,7 @@ struct
     {&nas_builtin_rand,   "rand"  },
     {&nas_builtin_append, "append"},
     {&nas_builtin_exp,    "exp"   },
+    {&nas_builtin_system, "system"},
     {NULL,                NULL    }
 };
 
@@ -59,7 +61,6 @@ nas_val* nas_builtin_type(nas_val* elem)
         case vm_vec:  *s->ptr.str="vector";   break;
         case vm_hash: *s->ptr.str="hash";     break;
         case vm_func: *s->ptr.str="function"; break;
-        case vm_scop: *s->ptr.str="scope";    break;
     }
     return s;
 }
@@ -105,6 +106,11 @@ nas_val* nas_builtin_append(nas_val* elem)
         std::cout<<">> [vm] builtin_append: lack argument(s).\n";
         return nullptr;
     }
+    if(vec[0]->type!=vm_vec)
+    {
+        std::cout<<">> [vm] builtin_append: must use vector.\n";
+        return nullptr;
+    }
     std::vector<nas_val*>& ref=vec[0]->ptr.vec->elems;
     for(int i=1;i<vec.size();++i)
         ref.push_back(vec[i]);
@@ -122,5 +128,22 @@ nas_val* nas_builtin_exp(nas_val* elem)
     nas_val* res=gc_alloc(vm_num);
     res->ptr.num=exp(vec[0]->ptr.num);
     return res;
+}
+
+nas_val* nas_builtin_system(nas_val* elem)
+{
+    std::vector<nas_val*>& vec=elem->ptr.vec->elems;
+    if(vec.size()!=1)
+    {
+        std::cout<<">> [vm] builtin_system: must use one argument.\n";
+        return nullptr;
+    }
+    if(vec[0]->type!=vm_str)
+    {
+        std::cout<<">> [vm] builtin_system: must use string.\n";
+        return nullptr;
+    }
+    system(vec[0]->ptr.str->data());
+    return gc_alloc(vm_nil);
 }
 #endif

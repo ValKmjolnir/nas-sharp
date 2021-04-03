@@ -33,7 +33,7 @@ var i=func(x,elem...)
     for(var i=0;i<size(elem);i+=1)
         sum+=elem[i];
     return sum;
-};
+}
 ```
 
 # operators
@@ -60,7 +60,8 @@ when calling a function,use
 3*3;
 4/4;
 'hello '~'world';
-!0;!!0;
+!0;
+!!0;
 -1;
 
 i+=1;

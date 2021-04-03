@@ -2,7 +2,7 @@
 #define __NAS_VM_H__
 
 // loop mark
-bool main_loop_continue_mark;
+bool loop_mark;
 // constant pool
 std::vector<nas_val*>    rt_num_table;
 std::vector<std::string> rt_str_table;
@@ -15,13 +15,13 @@ std::stack<unsigned int> return_address;
 
 void runtime_error(std::string opname,std::string info)
 {
-    main_loop_continue_mark=false;
+    loop_mark=false;
     std::cout<<">> [vm] "<<opname<<": "<<info<<".\n";
     return;
 }
 void opr_nop()
 {
-    main_loop_continue_mark=false;
+    loop_mark=false;
     return;
 }
 void opr_nil()
@@ -54,20 +54,22 @@ void opr_pushf()
 {
     *(++stack_top)=gc_alloc(vm_func);
     if(!local_scope.empty())
-        (*stack_top)->ptr.func->set_scope(local_scope.front());
+        (*stack_top)->ptr.func->scope=local_scope.front();
     (*stack_top)->ptr.func->entry=exec_code[pc].num;
     return;
 }
 void opr_vapp()
 {
-    nas_val* tmp=*stack_top--;
-    (*stack_top)->ptr.vec->add_elem(tmp);
+    nas_val* vec=*(stack_top-exec_code[pc].num);
+    for(nas_val** i=stack_top-exec_code[pc].num+1;i<=stack_top;++i)
+        vec->ptr.vec->elems.push_back(*i);
+    stack_top-=exec_code[pc].num;
     return;
 }
 void opr_happ()
 {
     nas_val* tmp=*stack_top--;
-    (*stack_top)->ptr.hash->add_elem(rt_str_table[exec_code[pc].num],tmp);
+    (*stack_top)->ptr.hash->elems[rt_str_table[exec_code[pc].num]]=tmp;
     return;
 }
 void opr_para()
@@ -82,22 +84,22 @@ void opr_dynpara()
 }
 void opr_loadg()
 {
-    global_scope->ptr.cls->add_value(exec_code[pc].num,*stack_top--);
+    global_scope[exec_code[pc].num]=*stack_top--;
     return;
 }
 void opr_loadl()
 {
-    local_scope.front()->ptr.cls->add_value(exec_code[pc].num,*stack_top--);
+    local_scope.front()[exec_code[pc].num]=*stack_top--;
     return;
 }
 void opr_callg()
 {
-    *(++stack_top)=global_scope->ptr.cls->get_val(exec_code[pc].num);
+    *(++stack_top)=global_scope[exec_code[pc].num];
     return;
 }
 void opr_calll()
 {
-    *(++stack_top)=local_scope.front()->ptr.cls->get_val(exec_code[pc].num);
+    *(++stack_top)=local_scope.front()[exec_code[pc].num];
     return;
 }
 void opr_callv()
@@ -144,7 +146,7 @@ void opr_callv()
     }
     if(!res)
     {
-        main_loop_continue_mark=false;
+        loop_mark=false;
         return;
     }
     *stack_top=res;
@@ -160,7 +162,7 @@ void opr_callh()
     nas_val* tmp=(*stack_top)->ptr.hash->get_val(rt_str_table[exec_code[pc].num]);
     if(!tmp)
     {
-        main_loop_continue_mark=false;
+        loop_mark=false;
         return;
     }
     *stack_top=tmp;
@@ -179,15 +181,14 @@ void opr_callf()
     if(func->ptr.func->is_builtin)
     {
         nas_val* ret=builtin_func[func->ptr.func->entry].func_ptr(vec);
-        main_loop_continue_mark=(ret!=0);
+        loop_mark=(ret!=0);
         *(--stack_top)=ret;
         return;
     }
     return_address.push(pc);
     pc=func->ptr.func->entry-1;
 
-    local_scope.push_front(gc_alloc(vm_scop));
-    local_scope.front()->ptr.cls->set_closure(func->ptr.func->scope->ptr.cls);
+    local_scope.push_front(func->ptr.func->scope);
 
     // load parameter unfinished
     std::vector<nas_val*>& paras=vec->ptr.vec->elems;
@@ -202,24 +203,24 @@ void opr_callf()
         return;
     }
     for(int i=0;i<argindex_size;++i)
-        local_scope.front()->ptr.cls->add_value(para_index[i],paras[i]);
+        local_scope.front()[para_index[i]]=paras[i];
     if(dynpara>=0)
     {
         nas_val* dyn=gc_alloc(vm_vec);
         for(int i=argindex_size;i<arg_size;++i)
-            dyn->ptr.vec->add_elem(paras[i]);
-        local_scope.front()->ptr.cls->add_value(dynpara,dyn);
+            dyn->ptr.vec->elems.push_back(paras[i]);
+        local_scope.front()[dynpara]=dyn;
     }
     return;
 }
 void opr_mcallg()
 {
-    mem_stack.push(global_scope->ptr.cls->get_mem(exec_code[pc].num));
+    mem_stack.push(&global_scope[exec_code[pc].num]);
     return;
 }
 void opr_mcalll()
 {
-    mem_stack.push(local_scope.front()->ptr.cls->get_mem(exec_code[pc].num));
+    mem_stack.push(&local_scope.front()[exec_code[pc].num]);
     return;
 }
 void opr_mcallv()
@@ -252,7 +253,7 @@ void opr_mcallv()
     }
     if(!res)
     {
-        main_loop_continue_mark=false;
+        loop_mark=false;
         return;
     }
     mem_stack.top()=res;
@@ -269,7 +270,7 @@ void opr_mcallh()
     nas_val** res=(*mem)->ptr.hash->get_mem(rt_str_table[exec_code[pc].num]);
     if(!res)
     {
-        main_loop_continue_mark=false;
+        loop_mark=false;
         return;
     }
     mem_stack.top()=res;
@@ -423,7 +424,7 @@ void opr_eq()
     else if(num1->type==vm_num && num2->type==vm_num)
         res->ptr.num=(num1->ptr.num==num2->ptr.num);
     else if(num1->type==vm_str && num2->type==vm_str)
-        res->ptr.num=(num1->ptr.str==num2->ptr.str);
+        res->ptr.num=(*num1->ptr.str==*num2->ptr.str);
     else
         res->ptr.num=(num1==num2);
     *stack_top=res;
@@ -439,7 +440,7 @@ void opr_neq()
     else if(num1->type==vm_num && num2->type==vm_num)
         res->ptr.num=(num1->ptr.num!=num2->ptr.num);
     else if(num1->type==vm_str && num2->type==vm_str)
-        res->ptr.num=(num1->ptr.str!=num2->ptr.str);
+        res->ptr.num=(*num1->ptr.str!=*num2->ptr.str);
     else
         res->ptr.num=(num1!=num2);
     *stack_top=res;
@@ -453,7 +454,7 @@ void opr_less()
     if(num1->type==vm_num && num2->type==vm_num)
         res->ptr.num=(num1->ptr.num<num2->ptr.num);
     else if(num1->type==vm_str && num2->type==vm_str)
-        res->ptr.num=(num1->ptr.str<num2->ptr.str);
+        res->ptr.num=(*num1->ptr.str<*num2->ptr.str);
     else
         runtime_error("less","only number and string can take part in this calculation");
     *stack_top=res;
@@ -467,7 +468,7 @@ void opr_leq()
     if(num1->type==vm_num && num2->type==vm_num)
         res->ptr.num=(num1->ptr.num<=num2->ptr.num);
     else if(num1->type==vm_str && num2->type==vm_str)
-        res->ptr.num=(num1->ptr.str<=num2->ptr.str);
+        res->ptr.num=(*num1->ptr.str<=*num2->ptr.str);
     else
         runtime_error("leq","only number and string can take part in this calculation");
     *stack_top=res;
@@ -481,7 +482,7 @@ void opr_grt()
     if(num1->type==vm_num && num2->type==vm_num)
         res->ptr.num=(num1->ptr.num>num2->ptr.num);
     else if(num1->type==vm_str && num2->type==vm_str)
-        res->ptr.num=(num1->ptr.str>num2->ptr.str);
+        res->ptr.num=(*num1->ptr.str>*num2->ptr.str);
     else
         runtime_error("grt","only number and string can take part in this calculation");
     *stack_top=res;
@@ -495,7 +496,7 @@ void opr_geq()
     if(num1->type==vm_num && num2->type==vm_num)
         res->ptr.num=(num1->ptr.num>=num2->ptr.num);
     else if(num1->type==vm_str && num2->type==vm_str)
-        res->ptr.num=(num1->ptr.str>=num2->ptr.str);
+        res->ptr.num=(*num1->ptr.str>=*num2->ptr.str);
     else
         runtime_error("geq","only number and string can take part in this calculation");
     *stack_top=res;
@@ -540,47 +541,42 @@ void opr_ret()
 void init_vm()
 {
     gc_init();
-    main_loop_continue_mark=true;
+    loop_mark=true;
 
-    val_stack=new nas_val*[16384];
     stack_top=val_stack;
     *stack_top=gc_alloc(vm_nil); // set nil in the beginning space to avoid errors
-
-    global_scope=gc_alloc(vm_scop);
 
     for(int i=0;builtin_func[i].func_name;++i)
     {
         nas_val* new_builtin=gc_alloc(vm_func);
         new_builtin->ptr.func->is_builtin=true;
         new_builtin->ptr.func->entry=i;
-        global_scope->ptr.cls->add_value(string_table[builtin_func[i].func_name],new_builtin);
+        global_scope[string_table[builtin_func[i].func_name]]=new_builtin;
     }
 
     rt_num_table.resize(number_table.size());
-    for(auto iter=number_table.begin();iter!=number_table.end();++iter)
+    for(auto i=number_table.begin();i!=number_table.end();++i)
     {
         nas_val* num=new nas_val(vm_num);
-        num->ptr.num=iter->first;
-        rt_num_table[iter->second]=num;
+        num->ptr.num=i->first;
+        rt_num_table[i->second]=num;
     }
     number_table.clear();
+
     rt_str_table.resize(string_table.size());
-    for(auto iter=string_table.begin();iter!=string_table.end();++iter)
-        rt_str_table[iter->second]=iter->first;
+    for(auto i=string_table.begin();i!=string_table.end();++i)
+        rt_str_table[i->second]=i->first;
     string_table.clear();
     return;
 }
 
 void clear_vm()
 {
-    delete []val_stack;
+    gc_clean();
     while(!mem_stack.empty())
         mem_stack.pop();
-    local_scope.clear();
     while(!return_address.empty())
         return_address.pop();
-    gc_clean();
-
     for(auto i=rt_num_table.begin();i!=rt_num_table.end();++i)
         delete *i;
     rt_num_table.clear();
@@ -642,7 +638,7 @@ void run_vm()
 
     init_vm();
     clock_t begin_time=clock();
-    for(pc=0;main_loop_continue_mark;++pc)
+    for(pc=0;loop_mark;++pc)
         (*func[exec_code[pc].op])();
     float total_run_time=((double)(clock()-begin_time))/CLOCKS_PER_SEC;
     std::cout<<">> [vm] process exited after "<<total_run_time<<"s.\n";
