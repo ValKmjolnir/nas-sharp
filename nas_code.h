@@ -16,6 +16,9 @@ enum opcode_type
     op_happ,
     op_para,
     op_dynpara,
+    // space size
+    op_intg,
+    op_intl,
     // load
     op_loadg,
     op_loadl,
@@ -79,6 +82,8 @@ struct
     {op_happ,    "happ  "},
     {op_para,    "para  "},
     {op_dynpara, "dynp  "},
+    {op_intg,    "intg  "},
+    {op_intl,    "intl  "},
     {op_loadg,   "loadg "},
     {op_loadl,   "loadl "},
     {op_callg,   "callg "},
@@ -158,8 +163,8 @@ void regist_str(std::string);
 void regist_num(double);
 void global_addsym(std::string);
 void local_addsym(std::string);
-bool in_global(std::string);
-bool in_local(std::string);
+int in_global(std::string);
+int in_local(std::string);
 void emit(unsigned char,unsigned int);
 void regist_builtin();
 void proc_gen(nas_ast&);
@@ -201,7 +206,6 @@ void regist_num(double num)
 }
 void global_addsym(std::string sym)
 {
-    regist_str(sym);
     for(int i=0;i<global_symbol.size();++i)
         if(global_symbol[i]==sym)
             return;
@@ -210,27 +214,31 @@ void global_addsym(std::string sym)
 }
 void local_addsym(std::string sym)
 {
-    regist_str(sym);
     for(int i=0;i<local_symbol.front().size();++i)
         if(local_symbol.front()[i]==sym)
             return;
     local_symbol.front().push_back(sym);
     return;
 }
-bool in_global(std::string sym)
+int in_global(std::string sym)
 {
     for(int i=0;i<global_symbol.size();++i)
         if(global_symbol[i]==sym)
-            return true;
-    return false;
+            return i;
+    return -1;
 }
-bool in_local(std::string sym)
+int in_local(std::string sym)
 {
+    int index=-1;
+    int cnt=0;
     for(auto i=local_symbol.begin();i!=local_symbol.end();++i)
+    {
         for(int j=0;j<i->size();++j)
             if((*i)[j]==sym)
-                return true;
-    return false;
+                index=cnt+j;
+        cnt+=i->size();
+    }
+    return index;
 }
 void emit(unsigned char op,unsigned int num=0)
 {
@@ -252,11 +260,14 @@ void proc_gen(nas_ast& root)
     local_symbol.clear();
     regist_builtin();
     exec_code.clear();
+
+    emit(op_intg,0);
     std::vector<nas_ast>& exprs=root.get_children();
     int size=exprs.size();
     for(int i=0;i<size;++i)
         expr_gen(exprs[i]);
     emit(op_nop);
+    exec_code[0].num=global_symbol.size();
     return;
 }
 void blk_gen(nas_ast& node)
@@ -449,15 +460,17 @@ void func_gen(nas_ast& node)
 {
     int pushf_label=exec_code.size();
     emit(op_pushf,0);
+    int intl_label=exec_code.size();
+    emit(op_intl,0);
     std::vector<nas_ast>& parameter=node.get_children()[0].get_children();
     std::vector<std::string> new_local;
-    local_symbol.push_front(new_local);
+    local_symbol.push_back(new_local);
     for(int i=0;i<parameter.size();++i)
     {
         local_addsym(parameter[i].get_str());
         emit(
             parameter[i].get_type()==ast_para?op_para:op_dynpara,
-            string_table[parameter[i].get_str()]
+            in_local(parameter[i].get_str())
         );
     }
     exec_code[pushf_label].num=exec_code.size()+1;
@@ -469,7 +482,11 @@ void func_gen(nas_ast& node)
         emit(op_nil);
         emit(op_ret);
     }
-    local_symbol.pop_front();
+
+    exec_code[intl_label].num=0;
+    for(auto i=local_symbol.begin();i!=local_symbol.end();++i)
+        exec_code[intl_label].num+=i->size();
+    local_symbol.pop_back();
     exec_code[jmp_label].num=exec_code.size();
     return;
 }
@@ -477,12 +494,20 @@ void call_gen(nas_ast& node)
 {
     if(node.get_type()==ast_id)
     {
-        if(in_local(node.get_str()))
-            emit(op_calll,string_table[node.get_str()]);
-        else if(in_global(node.get_str()))
-            emit(op_callg,string_table[node.get_str()]);
-        else
-            die("cannot find symbol named \""+node.get_str()+"\".",node.get_line());
+        int index=-1;
+        index=in_local(node.get_str());
+        if(index>-1)
+        {
+            emit(op_calll,index);
+            return;
+        }
+        index=in_global(node.get_str());
+        if(index>-1)
+        {
+            emit(op_callg,index);
+            return;
+        }
+        die("cannot find symbol named \""+node.get_str()+"\".",node.get_line());
         return;
     }
     std::vector<nas_ast>& calls=node.get_children();
@@ -518,12 +543,20 @@ void mcall_gen(nas_ast& node)
 {
     if(node.get_type()==ast_id)
     {
-        if(in_local(node.get_str()))
-            emit(op_mcalll,string_table[node.get_str()]);
-        else if(in_global(node.get_str()))
-            emit(op_mcallg,string_table[node.get_str()]);
-        else
-            die("cannot find symbol named \""+node.get_str()+"\".",node.get_line());
+        int index=-1;
+        index=in_local(node.get_str());
+        if(index>-1)
+        {
+            emit(op_mcalll,index);
+            return;
+        }
+        index=in_global(node.get_str());
+        if(index>-1)
+        {
+            emit(op_mcallg,index);
+            return;
+        }
+        die("cannot find symbol named \""+node.get_str()+"\".",node.get_line());
         return;
     }
     std::vector<nas_ast>& calls=node.get_children();
@@ -551,7 +584,10 @@ void def_gen(nas_ast& node)
     else
         local_addsym(node.get_str());
     calc_gen(node.get_children()[0]);
-    emit(local_symbol.empty()?op_loadg:op_loadl,string_table[node.get_str()]);
+    if(local_symbol.empty())
+        emit(op_loadg,in_global(node.get_str()));
+    else
+        emit(op_loadl,in_local(node.get_str()));
     return;
 }
 void if_gen(nas_ast& node)

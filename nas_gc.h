@@ -43,7 +43,7 @@ struct nas_func
     int dynpara;
     bool is_builtin;
     std::vector<int> para;
-    std::unordered_map<int,nas_val*> scope;
+    std::vector<nas_val*> scope;
 
     nas_func();
 };
@@ -210,8 +210,8 @@ nas_val* val_stack[65536<<4];
 nas_val** stack_top;
 std::queue<nas_val*> free_space;
 std::vector<nas_val*> memory;
-std::unordered_map<int,nas_val*> global_scope;
-std::list<std::unordered_map<int,nas_val*> > local_scope;
+std::vector<nas_val*> global_scope;
+std::list<std::vector<nas_val*> > local_scope;
 
 void sweep()
 {
@@ -232,10 +232,10 @@ void mark()
 {
     std::queue<nas_val*> bfs;
     for(auto i=global_scope.begin();i!=global_scope.end();++i)
-        bfs.push(i->second);
+        bfs.push(*i);
     for(auto i=local_scope.begin();i!=local_scope.end();++i)
         for(auto j=i->begin();j!=i->end();++j)
-            bfs.push(j->second);
+            bfs.push(*j);
     for(auto i=val_stack;i<=stack_top;++i)
         bfs.push(*i);
     while(!bfs.empty())
@@ -250,7 +250,7 @@ void mark()
                 bfs.push(*i);
         else if(t->type==vm_func)
             for(auto i=t->ptr.func->scope.begin();i!=t->ptr.func->scope.end();++i)
-                bfs.push(i->second);
+                bfs.push(*i);
         else if(t->type==vm_hash)
             for(auto i=t->ptr.hash->elems.begin();i!=t->ptr.hash->elems.end();++i)
                 bfs.push(i->second);

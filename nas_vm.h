@@ -4,7 +4,8 @@
 // loop mark
 bool loop_mark;
 // constant pool
-std::vector<nas_val*>    rt_num_table;
+std::vector<nas_val*>    num_addrs;
+std::vector<nas_val*>    str_addrs;
 std::vector<std::string> rt_str_table;
 // program counter
 int pc;
@@ -31,13 +32,12 @@ void opr_nil()
 }
 void opr_pushn()
 {
-    *(++stack_top)=rt_num_table[exec_code[pc].num];
+    *(++stack_top)=num_addrs[exec_code[pc].num];
     return;
 }
 void opr_pushs()
 {
-    *(++stack_top)=gc_alloc(vm_str);
-    *(*stack_top)->ptr.str=rt_str_table[exec_code[pc].num];
+    *(++stack_top)=str_addrs[exec_code[pc].num];
     return;
 }
 void opr_pushv()
@@ -80,6 +80,24 @@ void opr_para()
 void opr_dynpara()
 {
     (*stack_top)->ptr.func->dynpara=exec_code[pc].num;
+    return;
+}
+void opr_intg()
+{
+    global_scope.resize(exec_code[pc].num);
+    // load builtin
+    for(int i=0;builtin_func[i].func_name;++i)
+    {
+        nas_val* new_builtin=gc_alloc(vm_func);
+        new_builtin->ptr.func->is_builtin=true;
+        new_builtin->ptr.func->entry=i;
+        global_scope[i]=new_builtin;
+    }
+    return;
+}
+void opr_intl()
+{
+    (*stack_top)->ptr.func->scope.resize(exec_code[pc].num);
     return;
 }
 void opr_loadg()
@@ -190,7 +208,7 @@ void opr_callf()
 
     local_scope.push_front(func->ptr.func->scope);
 
-    // load parameter unfinished
+    // load parameter
     std::vector<nas_val*>& paras=vec->ptr.vec->elems;
     std::vector<int>& para_index=func->ptr.func->para;
     int dynpara=func->ptr.func->dynpara;
@@ -546,26 +564,24 @@ void init_vm()
     stack_top=val_stack;
     *stack_top=gc_alloc(vm_nil); // set nil in the beginning space to avoid errors
 
-    for(int i=0;builtin_func[i].func_name;++i)
-    {
-        nas_val* new_builtin=gc_alloc(vm_func);
-        new_builtin->ptr.func->is_builtin=true;
-        new_builtin->ptr.func->entry=i;
-        global_scope[string_table[builtin_func[i].func_name]]=new_builtin;
-    }
-
-    rt_num_table.resize(number_table.size());
+    num_addrs.resize(number_table.size());
     for(auto i=number_table.begin();i!=number_table.end();++i)
     {
         nas_val* num=new nas_val(vm_num);
         num->ptr.num=i->first;
-        rt_num_table[i->second]=num;
+        num_addrs[i->second]=num;
     }
     number_table.clear();
 
+    str_addrs.resize(string_table.size());
     rt_str_table.resize(string_table.size());
     for(auto i=string_table.begin();i!=string_table.end();++i)
+    {
+        nas_val* str=new nas_val(vm_str);
+        *str->ptr.str=i->first;
+        str_addrs[i->second]=str;
         rt_str_table[i->second]=i->first;
+    }
     string_table.clear();
     return;
 }
@@ -577,9 +593,12 @@ void clear_vm()
         mem_stack.pop();
     while(!return_address.empty())
         return_address.pop();
-    for(auto i=rt_num_table.begin();i!=rt_num_table.end();++i)
+    for(auto i=num_addrs.begin();i!=num_addrs.end();++i)
         delete *i;
-    rt_num_table.clear();
+    for(auto i=str_addrs.begin();i!=str_addrs.end();++i)
+        delete *i;
+    num_addrs.clear();
+    str_addrs.clear();
     rt_str_table.clear();
     return;
 }
@@ -599,6 +618,8 @@ void run_vm()
         &opr_happ,
         &opr_para,
         &opr_dynpara,
+        &opr_intg,
+        &opr_intl,
         &opr_loadg,
         &opr_loadl,
         &opr_callg,
